@@ -3,7 +3,7 @@ import { AuthRequest } from '../middleware/auth';
 import * as ClientService from '../services/clientService';
 import * as LookupService from '../services/lookupService';
 import { buildReferralPdf } from '../services/referralPdfService';
-import { ConsultationBody, IntakeBody, ClientSex, CivilStatus } from '../types/client';
+import { ConsultationBody, HistoryFilters, IntakeBody, ClientSex, CivilStatus } from '../types/client';
 import { SubmitFeedbackBody } from '../types/feedback';
 
 const SEX_VALUES: ClientSex[] = ['male', 'female'];
@@ -159,6 +159,16 @@ export async function submitFeedback(req: Request, res: Response) {
   }
 
   res.json({ message: 'Thank you for your feedback' });
+}
+
+export async function listHistory(req: AuthRequest, res: Response) {
+  const filters: HistoryFilters = {
+    date_from: typeof req.query.date_from === 'string' ? req.query.date_from : undefined,
+    date_to: typeof req.query.date_to === 'string' ? req.query.date_to : undefined,
+    search: typeof req.query.search === 'string' ? req.query.search : undefined,
+  };
+  const history = await ClientService.listCompletedByLawyer(req.user!.id, filters);
+  res.json(history);
 }
 
 // Referral PDF — admin can access any client's; a lawyer only their own.

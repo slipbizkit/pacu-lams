@@ -58,7 +58,7 @@ export default function IntakePage() {
       <div className="d-flex justify-content-between align-items-center p-4">
         <div className="d-flex align-items-center gap-2">
           <BrandMark size={30} />
-          <span className="pacu-display fs-5">PACU Intake</span>
+          <span className="pacu-display fs-5">Assistance Form</span>
         </div>
         <ThemeSwitcher />
       </div>

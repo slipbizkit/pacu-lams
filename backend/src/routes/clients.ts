@@ -20,6 +20,7 @@ router.post(
   asyncHandler(ClientController.assign)
 );
 
+router.get('/history', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.listHistory));
 router.get('/mine', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.listMine));
 router.get('/mine/:id', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.getMine));
 router.post('/:id/claim', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.claim));

@@ -90,3 +90,14 @@ export interface IntakeResult {
   queue_number: number;
   transaction_date: string;
 }
+
+export interface HistoryFilters {
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+}
+
+export interface CompletedTransaction extends Client {
+  referred_office_name: string | null;
+  issue_categories: string | null;
+}

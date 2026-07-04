@@ -1,5 +1,5 @@
 import sql from '../db';
-import { Client, ConsultationBody, IntakeBody, IssueTag } from '../types/client';
+import { Client, CompletedTransaction, ConsultationBody, HistoryFilters, IntakeBody, IssueTag } from '../types/client';
 import { nextQueueSlot, buildReferenceNo } from './queueService';
 
 export async function createIntake(body: IntakeBody): Promise<Client> {
@@ -15,7 +15,7 @@ export async function createIntake(body: IntakeBody): Promise<Client> {
     ) VALUES (
       ${referenceNo}, ${queueNumber}, ${transactionDate},
       ${body.first_name}, ${body.middle_name ?? null}, ${body.last_name}, ${body.suffix ?? null},
-      ${body.sex ?? null}, ${body.birth_date ?? null}, ${body.civil_status ?? null},
+      ${body.sex ?? null}, ${body.birth_date || null}, ${body.civil_status ?? null},
       ${body.contact_no ?? null}, ${body.email ?? null}, ${body.address ?? null},
       ${body.city ?? null}, ${body.province ?? null}, ${body.occupation ?? null},
       ${body.employer ?? null}, ${body.concern ?? null},
@@ -185,6 +185,40 @@ export async function submitFeedback(
   if (!current) return { error: 'not_found' };
   if (current.status !== 'completed') return { error: 'not_completed' };
   return { error: 'already_submitted' };
+}
+
+export async function listCompletedByLawyer(
+  lawyerId: number,
+  filters: HistoryFilters
+): Promise<CompletedTransaction[]> {
+  const dateFrom = filters.date_from || null;
+  const dateTo = filters.date_to || null;
+  const searchLike = filters.search?.trim() ? `%${filters.search.trim()}%` : null;
+
+  const rows = await sql`
+    SELECT
+      c.*,
+      MAX(ro.office_name) AS referred_office_name,
+      STRING_AGG(ic.category_name, ', ' ORDER BY ic.category_name) AS issue_categories
+    FROM clients c
+    LEFT JOIN referred_offices ro ON ro.office_id = c.referred_office_id
+    LEFT JOIN client_issues ci ON ci.client_id = c.client_id
+    LEFT JOIN issue_categories ic ON ic.category_id = ci.category_id
+    WHERE c.assigned_lawyer_id = ${lawyerId}
+      AND c.status = 'completed'
+      AND (${dateFrom}::date IS NULL OR c.updated_at::date >= ${dateFrom}::date)
+      AND (${dateTo}::date IS NULL OR c.updated_at::date <= ${dateTo}::date)
+      AND (
+        ${searchLike}::text IS NULL
+        OR c.first_name ILIKE ${searchLike}::text
+        OR c.last_name ILIKE ${searchLike}::text
+        OR (c.first_name || ' ' || c.last_name) ILIKE ${searchLike}::text
+        OR c.employer ILIKE ${searchLike}::text
+      )
+    GROUP BY c.client_id
+    ORDER BY c.updated_at DESC
+  `;
+  return rows as CompletedTransaction[];
 }
 
 export async function findForReferral(clientId: number): Promise<Client | null> {

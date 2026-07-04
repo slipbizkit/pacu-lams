@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { clientService, userService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import type { Client, LawyerOption } from '../types/client';
 
 function isPriority(c: Client) {
@@ -16,6 +17,9 @@ function priorityLabels(c: Client) {
 }
 
 export default function QueuePage() {
+  const { role } = useAuth();
+  const canAssign = role === 'personnel' || role === 'admin';
+
   const [clients, setClients] = useState<Client[]>([]);
   const [lawyers, setLawyers] = useState<LawyerOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +28,10 @@ export default function QueuePage() {
   async function load() {
     setLoading(true);
     try {
-      const [queue, lawyerList] = await Promise.all([clientService.listQueue(), userService.listLawyers()]);
+      const [queue, lawyerList] = await Promise.all([
+        clientService.listQueue(),
+        canAssign ? userService.listLawyers() : Promise.resolve([]),
+      ]);
       setClients(queue);
       setLawyers(lawyerList);
     } catch (err) {
@@ -105,7 +112,7 @@ export default function QueuePage() {
                   <th>Name</th>
                   <th>Priority</th>
                   <th>Concern</th>
-                  <th className="text-end pe-4">Action</th>
+                  {canAssign && <th className="text-end pe-4">Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -134,16 +141,18 @@ export default function QueuePage() {
                       <td className="text-muted" style={{ maxWidth: 280 }}>
                         <div className="text-truncate">{c.concern || '—'}</div>
                       </td>
-                      <td className="text-end pe-4">
-                        <button
-                          className="btn btn-sm btn-primary"
-                          disabled={blocked || assigningId === c.client_id}
-                          title={blocked ? 'Priority clients must be assigned first' : undefined}
-                          onClick={() => handleAssign(c)}
-                        >
-                          {assigningId === c.client_id ? <span className="spinner-border spinner-border-sm" /> : 'Assign'}
-                        </button>
-                      </td>
+                      {canAssign && (
+                        <td className="text-end pe-4">
+                          <button
+                            className="btn btn-sm btn-primary"
+                            disabled={blocked || assigningId === c.client_id}
+                            title={blocked ? 'Priority clients must be assigned first' : undefined}
+                            onClick={() => handleAssign(c)}
+                          >
+                            {assigningId === c.client_id ? <span className="spinner-border spinner-border-sm" /> : 'Assign'}
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

@@ -36,10 +36,25 @@ export interface Client {
   legal_advice: string | null;
   referred_office_id: number | null;
   referred_reason: string | null;
+
+  feedback_rating: number | null;
+  feedback_comments: string | null;
+
   status: ClientStatus;
 
   created_at: string;
   updated_at: string;
+}
+
+export interface HistoryFilters {
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+}
+
+export interface CompletedTransaction extends Client {
+  referred_office_name: string | null;
+  issue_categories: string | null;
 }
 
 export interface IssueTag {

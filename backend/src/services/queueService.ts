@@ -14,8 +14,11 @@ export async function nextQueueSlot(): Promise<QueueSlot> {
     ON CONFLICT (queue_date) DO UPDATE SET last_number = daily_queue_counters.last_number + 1
     RETURNING queue_date, last_number
   `;
-  const row = rows[0] as { queue_date: string; last_number: number };
-  return { queueNumber: row.last_number, transactionDate: row.queue_date };
+  const row = rows[0] as { queue_date: Date | string; last_number: number };
+  const raw = row.queue_date;
+  // Neon returns DATE columns as Date objects; serialize to YYYY-MM-DD (UTC) for consistent formatting.
+  const transactionDate = raw instanceof Date ? raw.toISOString().slice(0, 10) : raw;
+  return { queueNumber: row.last_number, transactionDate };
 }
 
 export function buildReferenceNo(transactionDate: string, queueNumber: number): string {
