@@ -1,0 +1,376 @@
+/*
+ * PACU design tokens: color (per theme), type, radius, shadow, and accent —
+ * mapped onto Bootstrap 5.3 CSS variables so existing .card / .btn / form
+ * classes pick up the identity automatically without per-component branching.
+ */
+
+html[data-theme='light'] {
+  --pacu-bg: #f8fafc;
+  --pacu-surface: #ffffff;
+  --pacu-text: #0f172a;
+  --pacu-text-rgb: 15, 23, 42;
+  --pacu-text-secondary: #475569;
+  --pacu-text-muted: #94a3b8;
+  --pacu-border: #e2e8f0;
+  --pacu-accent: #8b5cf6;
+  --pacu-accent-rgb: 139, 92, 246;
+  --pacu-accent-hover: #7c3aed;
+  --pacu-accent-soft: rgba(139, 92, 246, 0.08);
+  --pacu-accent-contrast: #ffffff;
+  --pacu-success: #16a34a;
+  --pacu-warning: #d97706;
+  --pacu-danger: #dc2626;
+  --pacu-shadow-color: 15, 23, 42;
+}
+
+html[data-theme='soft-light'] {
+  --pacu-bg: #f7f1e1;
+  --pacu-surface: #fffcf2;
+  --pacu-text: #3a2f1e;
+  --pacu-text-rgb: 58, 47, 30;
+  --pacu-text-secondary: #6b5a3e;
+  --pacu-text-muted: #a6926a;
+  --pacu-border: #e0d0a8;
+  --pacu-accent: #8b5cf6;
+  --pacu-accent-rgb: 139, 92, 246;
+  --pacu-accent-hover: #7c3aed;
+  --pacu-accent-soft: rgba(139, 92, 246, 0.1);
+  --pacu-accent-contrast: #ffffff;
+  --pacu-success: #16a34a;
+  --pacu-warning: #d97706;
+  --pacu-danger: #dc2626;
+  --pacu-shadow-color: 58, 47, 30;
+}
+
+html[data-theme='dark'] {
+  --pacu-bg: #0f172a;
+  --pacu-surface: #1e293b;
+  --pacu-text: #f8fafc;
+  --pacu-text-rgb: 248, 250, 252;
+  --pacu-text-secondary: #94a3b8;
+  --pacu-text-muted: #475569;
+  --pacu-border: #334155;
+  --pacu-accent: #c4b5fd;
+  --pacu-accent-rgb: 196, 181, 253;
+  --pacu-accent-hover: #ddd6fe;
+  --pacu-accent-soft: rgba(196, 181, 253, 0.18);
+  --pacu-accent-contrast: #1e1b4b;
+  --pacu-success: #4ade80;
+  --pacu-warning: #fbbf24;
+  --pacu-danger: #f87171;
+  --pacu-shadow-color: 0, 0, 0;
+}
+
+:root {
+  --pacu-font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --pacu-font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --pacu-font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+
+  --pacu-radius-sm: 0.625rem;
+  --pacu-radius: 0.75rem;
+  --pacu-radius-lg: 1rem;
+
+  --pacu-shadow-sm: 0 1px 2px rgba(var(--pacu-shadow-color), 0.05), 0 1px 1px rgba(var(--pacu-shadow-color), 0.04);
+  --pacu-shadow-md: 0 8px 24px -8px rgba(var(--pacu-shadow-color), 0.14), 0 2px 6px -2px rgba(var(--pacu-shadow-color), 0.06);
+}
+
+/*
+ * Bootstrap sets --bs-body-color etc. on :root (specificity 0,1,0), which
+ * beats a plain `html` rule (0,0,1) regardless of source order. Match :root's
+ * specificity here so our values win.
+ */
+:root {
+  --bs-body-bg: var(--pacu-bg);
+  --bs-body-color: var(--pacu-text);
+  --bs-body-color-rgb: var(--pacu-text-rgb);
+  --bs-body-font-family: var(--pacu-font-body);
+  --bs-border-color: var(--pacu-border);
+  --bs-secondary-color: var(--pacu-text-secondary);
+  --bs-tertiary-color: var(--pacu-text-muted);
+  --bs-emphasis-color: var(--pacu-text);
+  --bs-primary: var(--pacu-accent);
+  --bs-primary-rgb: var(--pacu-accent-rgb);
+  --bs-success: var(--pacu-success);
+  --bs-warning: var(--pacu-warning);
+  --bs-danger: var(--pacu-danger);
+  --bs-link-color: var(--pacu-accent);
+  --bs-link-hover-color: var(--pacu-accent-hover);
+  --bs-border-radius: var(--pacu-radius-sm);
+  --bs-border-radius-lg: var(--pacu-radius);
+
+  background-color: var(--pacu-bg);
+  color: var(--pacu-text);
+  font-family: var(--pacu-font-body);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+body {
+  background-color: var(--pacu-bg);
+  color: var(--pacu-text);
+}
+
+h1, h2, h3, h4, h5,
+.pacu-display {
+  font-family: var(--pacu-font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.pacu-mono {
+  font-family: var(--pacu-font-mono);
+  letter-spacing: 0.02em;
+}
+
+.pacu-eyebrow {
+  font-family: var(--pacu-font-body);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pacu-text-muted);
+}
+
+/*
+ * Bootstrap 5.3 components (card, dropdown, inputs, etc.) hardcode their own
+ * --bs-* background/border variables directly on the component class (e.g.
+ * .card sets --bs-card-bg: #fff), so setting them only at :root/html never
+ * reaches the component. Override explicitly per component instead.
+ */
+.card,
+.dropdown-menu,
+.modal-content,
+.list-group-item,
+.offcanvas {
+  --bs-card-bg: var(--pacu-surface);
+  background-color: var(--pacu-surface);
+  color: var(--pacu-text);
+  border-color: var(--pacu-border);
+}
+
+.card {
+  border-radius: var(--pacu-radius-lg);
+  box-shadow: var(--pacu-shadow-sm);
+}
+
+.form-control,
+.form-select {
+  background-color: var(--pacu-surface);
+  color: var(--pacu-text);
+  border-color: var(--pacu-border);
+  border-radius: var(--pacu-radius-sm);
+  padding-block: 0.55rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--pacu-surface);
+  color: var(--pacu-text);
+  border-color: var(--pacu-accent);
+  box-shadow: 0 0 0 3px var(--pacu-accent-soft);
+}
+
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pacu-text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.table {
+  --bs-table-bg: var(--pacu-surface);
+  --bs-table-color: var(--pacu-text);
+  --bs-table-border-color: var(--pacu-border);
+}
+
+/* Buttons: crisp, confident, tokens only — no hardcoded brand colors */
+.btn {
+  border-radius: var(--pacu-radius-sm);
+  font-weight: 600;
+  padding-block: 0.55rem;
+  transition: transform 0.15s ease, box-shadow 0.18s ease, background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.btn-primary {
+  background-color: var(--pacu-accent);
+  border-color: var(--pacu-accent);
+  color: var(--pacu-accent-contrast);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--pacu-accent-hover);
+  border-color: var(--pacu-accent-hover);
+  color: var(--pacu-accent-contrast);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-outline-secondary {
+  color: var(--pacu-text-secondary);
+  border-color: var(--pacu-border);
+}
+
+.btn-outline-secondary:hover {
+  background-color: var(--pacu-accent-soft);
+  border-color: var(--pacu-accent);
+  color: var(--pacu-accent);
+}
+
+.btn-outline-danger {
+  color: var(--pacu-danger);
+  border-color: var(--pacu-danger);
+}
+
+.btn-outline-danger:hover {
+  background-color: var(--pacu-danger);
+  border-color: var(--pacu-danger);
+  color: #fff;
+}
+
+/* Visible, on-brand keyboard focus everywhere — accessibility floor */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--pacu-accent);
+  outline-offset: 2px;
+}
+
+.pacu-sidebar {
+  background-color: var(--pacu-surface);
+  border-right: 1px solid var(--pacu-border);
+}
+
+.pacu-navbar {
+  background-color: var(--pacu-surface);
+  border-bottom: 1px solid var(--pacu-border);
+}
+
+/* Sidebar nav: left accent bar on active item, not a filled pill */
+.pacu-nav-link {
+  position: relative;
+  font-size: 0.925rem;
+  font-weight: 500;
+  color: var(--pacu-text-secondary);
+  border-radius: var(--pacu-radius-sm);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.pacu-nav-link:hover {
+  background-color: var(--pacu-accent-soft);
+  color: var(--pacu-text);
+}
+
+.pacu-nav-link.active {
+  background-color: var(--pacu-accent-soft);
+  color: var(--pacu-accent);
+  font-weight: 600;
+}
+
+.pacu-nav-link.active::before {
+  content: '';
+  position: absolute;
+  left: -0.75rem;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 3px;
+  border-radius: 3px;
+  background-color: var(--pacu-accent);
+}
+
+/* Theme switcher: segmented control (light / dark) */
+.pacu-theme-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background-color: var(--pacu-bg);
+  border: 1px solid var(--pacu-border);
+  border-radius: var(--pacu-radius);
+}
+
+.pacu-theme-switch button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: calc(var(--pacu-radius) - 3px);
+  background: transparent;
+  color: var(--pacu-text-muted);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.pacu-theme-switch button:hover {
+  color: var(--pacu-text);
+}
+
+.pacu-theme-switch button.active {
+  background-color: var(--pacu-surface);
+  color: var(--pacu-accent);
+  box-shadow: var(--pacu-shadow-sm);
+}
+
+.pacu-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background-color: var(--pacu-accent-soft);
+  color: var(--pacu-accent);
+}
+
+.pacu-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: var(--pacu-accent);
+  color: var(--pacu-accent-contrast);
+  font-family: var(--pacu-font-display);
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.text-muted {
+  color: var(--pacu-text-muted) !important;
+}
+
+/* SweetAlert2 renders outside the React tree with its own default popup
+   styling — align it to the active theme so it doesn't look like a stock
+   white dialog dropped onto a dark background. */
+.swal2-popup {
+  background-color: var(--pacu-surface) !important;
+  color: var(--pacu-text) !important;
+  border-radius: var(--pacu-radius-lg) !important;
+  font-family: var(--pacu-font-body) !important;
+}
+
+.swal2-title {
+  font-family: var(--pacu-font-display) !important;
+  color: var(--pacu-text) !important;
+}
+
+.swal2-html-container {
+  color: var(--pacu-text-secondary) !important;
+}
+
+.swal2-styled.swal2-confirm {
+  background-color: var(--pacu-accent) !important;
+  border-radius: var(--pacu-radius-sm) !important;
+}
+
+.swal2-styled.swal2-cancel {
+  border-radius: var(--pacu-radius-sm) !important;
+}
