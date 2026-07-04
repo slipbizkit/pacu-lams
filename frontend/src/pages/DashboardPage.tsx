@@ -1,27 +1,13 @@
-import { useAuth } from '../context/AuthContext';
-
 const ROADMAP = [
-  { icon: 'bi-people', title: 'Queue & intake', body: 'Kiosk self-encode and personnel-assisted intake, with priority clients surfaced first.' },
+  { icon: 'bi-people', title: 'Queue & assistance form', body: 'Kiosk self-encode and personnel-assisted assistance form, with priority clients surfaced first.' },
   { icon: 'bi-chat-square-text', title: 'Consultation console', body: 'Tag issues, record legal advice, and log the action taken on each case.' },
   { icon: 'bi-signpost-2', title: 'Referrals & reports', body: 'Optional referrals to partner offices, plus filterable PDF/Excel reporting.' },
 ];
 
 export default function DashboardPage() {
-  const { user, role } = useAuth();
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-
   return (
     <div>
-      <p className="pacu-eyebrow mb-2">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-      <h1 className="pacu-display mb-1">
-        {greeting}{user ? `, ${user.first_name}` : ''}.
-      </h1>
-      <p className="text-muted" style={{ fontSize: '0.95rem' }}>
-        Signed in as <span className="pacu-badge">{role}</span>
-      </p>
-
-      <div className="row g-3 mt-4">
+      <div className="row g-3">
         {ROADMAP.map((item) => (
           <div key={item.title} className="col-md-4">
             <div className="card h-100">

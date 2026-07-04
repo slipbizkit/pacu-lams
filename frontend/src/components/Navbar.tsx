@@ -1,52 +1,58 @@
-import Swal from 'sweetalert2';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ThemeSwitcher } from './ThemeSwitcher';
+import { useSidebar } from '../context/SidebarContext';
+import { ThemeToggle } from './ThemeToggle';
 
-function initials(firstName: string, lastName: string) {
-  return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase();
+// Drives both the greeting bucket and the date/time display off one ticking
+// clock, so a long-lived session crosses "morning" -> "afternoon" -> "evening"
+// and the displayed time stays current without a page reload.
+function useClock(intervalMs = 30_000) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+function greetingFor(date: Date) {
+  const hour = date.getHours();
+  return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 }
 
 export function Navbar() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { collapsed, toggle } = useSidebar();
+  const now = useClock();
 
-  async function handleLogout() {
-    const result = await Swal.fire({
-      icon: 'warning',
-      title: 'Log out?',
-      showCancelButton: true,
-      confirmButtonColor: 'var(--pacu-accent)',
-      confirmButtonText: 'Log out',
-    });
-    if (!result.isConfirmed) return;
-
-    logout();
-    navigate('/login');
-  }
+  const dateLabel = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const timeLabel = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
   return (
     <header className="pacu-navbar d-flex align-items-center justify-content-between px-4" style={{ height: 68 }}>
-      <div />
-      <div className="d-flex align-items-center gap-3">
-        <ThemeSwitcher />
-
-        {user && (
-          <div className="d-flex align-items-center gap-2 ps-3 border-start" style={{ borderColor: 'var(--pacu-border)' }}>
-            <span className="pacu-avatar">{initials(user.first_name, user.last_name)}</span>
-            <div className="lh-sm d-none d-sm-block">
-              <div className="fw-semibold" style={{ fontSize: '0.875rem' }}>
-                {user.first_name} {user.last_name}
-              </div>
-              <span className="pacu-badge">{user.role}</span>
-            </div>
-          </div>
-        )}
-
-        <button className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" onClick={handleLogout}>
-          <i className="bi bi-box-arrow-right" />
-          <span className="d-none d-md-inline">Log out</span>
+      <div className="d-flex align-items-center gap-3" style={{ minWidth: 0 }}>
+        <button
+          type="button"
+          className={`btn btn-sm btn-outline-secondary pacu-sidebar-toggle d-flex align-items-center justify-content-center flex-shrink-0${!collapsed ? ' is-active' : ''}`}
+          onClick={toggle}
+          title="Toggle Sidebar"
+          aria-label="Toggle Sidebar"
+          aria-pressed={!collapsed}
+        >
+          <i className="bi bi-list" style={{ fontSize: '1.1rem' }} />
         </button>
+
+        <span className="pacu-display text-truncate" style={{ fontSize: '1.05rem' }}>
+          {greetingFor(now)}
+          {user ? `, ${user.first_name}` : ''}
+        </span>
+      </div>
+
+      <div className="d-flex align-items-center gap-3">
+        <span className="text-muted d-none d-md-inline" style={{ fontSize: '0.8rem' }}>
+          {dateLabel} &bull; {timeLabel}
+        </span>
+        <ThemeToggle />
       </div>
     </header>
   );

@@ -1,0 +1,129 @@
+/*
+ * Sidebar collapse/drawer — one `collapsed` flag drives both:
+ *  - Desktop (>=992px): collapses to an icon-only rail (width transition).
+ *  - Mobile (<992px): becomes an off-canvas drawer (transform transition),
+ *    taken out of flex flow so it overlays content instead of squeezing it.
+ */
+
+.pacu-sidebar {
+  width: 252px;
+  min-height: 100vh;
+  flex-shrink: 0;
+  overflow-x: hidden;
+  transition: width 240ms ease;
+}
+
+.pacu-sidebar.is-collapsed {
+  width: 72px;
+}
+
+.pacu-sidebar-label {
+  transition: opacity 160ms ease;
+  white-space: nowrap;
+}
+
+.pacu-sidebar.is-collapsed .pacu-sidebar-label {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pacu-sidebar.is-collapsed .pacu-sidebar-brand-row {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.pacu-sidebar.is-collapsed nav {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.pacu-sidebar.is-collapsed .pacu-nav-link {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.pacu-sidebar.is-collapsed .pacu-nav-link.active::before {
+  left: 0;
+}
+
+.pacu-sidebar-divider {
+  border: none;
+  border-top: 1px solid var(--pacu-border);
+  opacity: 1;
+}
+
+.pacu-sidebar.is-collapsed .pacu-sidebar-divider {
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
+
+.pacu-sidebar-backdrop {
+  display: none;
+}
+
+.pacu-sidebar-toggle.is-active {
+  background-color: var(--pacu-accent-soft);
+  border-color: var(--pacu-accent);
+  color: var(--pacu-accent);
+}
+
+@media (max-width: 991.98px) {
+  .pacu-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1040;
+    width: 252px !important;
+    height: 100vh;
+    min-height: 0;
+    transform: translateX(-100%);
+    transition: transform 240ms ease;
+    box-shadow: var(--pacu-shadow-md);
+  }
+
+  .pacu-sidebar:not(.is-collapsed) {
+    transform: translateX(0);
+  }
+
+  /* On the drawer, labels always show regardless of the desktop collapse rule */
+  .pacu-sidebar .pacu-sidebar-label {
+    opacity: 1;
+    width: auto;
+    pointer-events: auto;
+  }
+
+  .pacu-sidebar .pacu-sidebar-brand-row,
+  .pacu-sidebar nav,
+  .pacu-sidebar .pacu-nav-link {
+    justify-content: flex-start;
+  }
+
+  .pacu-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1039;
+    background-color: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+
+  .pacu-sidebar-backdrop.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pacu-sidebar,
+  .pacu-sidebar-label,
+  .pacu-sidebar-backdrop {
+    transition: none;
+  }
+}

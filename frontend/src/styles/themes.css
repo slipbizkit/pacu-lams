@@ -152,6 +152,35 @@ h1, h2, h3, h4, h5,
   box-shadow: var(--pacu-shadow-sm);
 }
 
+/*
+ * .dropdown-menu above only themes the menu's own background/text — Bootstrap
+ * still applies its own hardcoded --bs-dropdown-link-hover-bg (a light gray)
+ * to .dropdown-item on hover/focus regardless of theme, which collides with
+ * themed (e.g. light-on-dark) text and becomes unreadable. Override every
+ * interactive state explicitly with pacu tokens instead.
+ */
+.dropdown-item {
+  color: var(--pacu-text);
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background-color: var(--pacu-accent-soft);
+  color: var(--pacu-accent-hover);
+}
+
+.dropdown-item:active,
+.dropdown-item.active {
+  background-color: var(--pacu-accent);
+  color: var(--pacu-accent-contrast);
+}
+
+.dropdown-item:disabled,
+.dropdown-item.disabled {
+  background-color: transparent;
+  color: var(--pacu-text-muted);
+}
+
 .form-control,
 .form-select {
   background-color: var(--pacu-surface);
@@ -312,6 +341,32 @@ input:focus-visible,
   background-color: var(--pacu-surface);
   color: var(--pacu-accent);
   box-shadow: var(--pacu-shadow-sm);
+}
+
+/* DataTable pagination — themed to match .btn-outline-secondary elsewhere */
+.page-link {
+  background-color: var(--pacu-surface);
+  border-color: var(--pacu-border);
+  color: var(--pacu-text-secondary);
+}
+
+.page-link:hover {
+  background-color: var(--pacu-accent-soft);
+  border-color: var(--pacu-accent);
+  color: var(--pacu-accent);
+}
+
+.page-item.active .page-link {
+  background-color: var(--pacu-accent);
+  border-color: var(--pacu-accent);
+  color: var(--pacu-accent-contrast);
+}
+
+.page-item.disabled .page-link {
+  background-color: var(--pacu-surface);
+  border-color: var(--pacu-border);
+  color: var(--pacu-text-muted);
+  opacity: 0.6;
 }
 
 .pacu-badge {
