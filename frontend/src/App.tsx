@@ -9,6 +9,7 @@ import IntakePage from './pages/IntakePage';
 import FeedbackPage from './pages/FeedbackPage';
 import QueuePage from './pages/QueuePage';
 import MyClientsPage from './pages/MyClientsPage';
+import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminCategoriesPage from './pages/AdminCategoriesPage';
 import AdminOfficesPage from './pages/AdminOfficesPage';
@@ -38,6 +39,7 @@ export default function App() {
           <Route element={<PrivateRoute allowedRoles={['lawyer']} />}>
             <Route element={<DashboardLayout />}>
               <Route path="/clients" element={<MyClientsPage />} />
+              <Route path="/history" element={<TransactionHistoryPage />} />
             </Route>
           </Route>
 
