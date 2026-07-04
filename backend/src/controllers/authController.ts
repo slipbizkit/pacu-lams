@@ -163,3 +163,14 @@ export async function me(req: AuthRequest, res: Response) {
   if (!user) return res.status(404).json({ message: 'User not found' });
   res.json(toPublicUser(user));
 }
+
+// Sliding session: called by the frontend while the user is active, so an
+// in-progress task isn't interrupted by the access token's fixed expiry.
+// Requires a still-valid access token — an already-expired token means the
+// user must log in again rather than being silently re-issued one.
+export async function refresh(req: AuthRequest, res: Response) {
+  const user = await AuthService.findById(req.user!.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  const token = signAccessToken(user);
+  res.json({ token });
+}

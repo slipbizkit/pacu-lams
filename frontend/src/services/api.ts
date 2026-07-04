@@ -1,10 +1,12 @@
 import type { CreateUserBody, CreateUserResult, LoginResponse, TotpSetupResponse, UpdateUserBody, User } from '../types/user';
 import type {
   Client,
+  CompletedTransaction,
   ConsultationBody,
   CreateIssueCategoryBody,
   CreateReferredOfficeBody,
   FeedbackStatus,
+  HistoryFilters,
   IntakeBody,
   IntakeResult,
   IssueCategory,
@@ -31,8 +33,12 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     },
   });
 
-  if (res.status === 401) {
+  if (res.status === 401 && token) {
+    // Only an expired/invalidated *session* (a token was actually sent) warrants
+    // the app-wide expiry redirect — a 401 from /auth/login or /auth/verify-totp
+    // is just a wrong credential/code and is handled inline by those forms.
     localStorage.removeItem('token');
+    window.dispatchEvent(new Event('auth:session-expired'));
   }
 
   if (!res.ok) {
@@ -93,6 +99,7 @@ export const authService = {
       body: JSON.stringify({ tempToken, code }),
     }),
   me: () => apiFetch<User>('/auth/me'),
+  refresh: () => apiFetch<{ token: string }>('/auth/refresh', { method: 'POST' }),
 };
 
 export const clientService = {
@@ -126,6 +133,8 @@ export const clientService = {
     }),
   downloadReferralPdf: (clientId: number, referenceNo: string) =>
     apiDownload(`/clients/${clientId}/referral.pdf`, `referral-${referenceNo}.pdf`),
+  listHistory: (filters?: HistoryFilters) =>
+    apiFetch<CompletedTransaction[]>(`/clients/history${toQueryString(filters ?? {})}`),
 };
 
 export const userService = {

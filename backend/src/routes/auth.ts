@@ -14,6 +14,7 @@ router.post('/totp/setup-init', loginLimiter, asyncHandler(AuthController.setupI
 router.post('/totp/setup-confirm', loginLimiter, asyncHandler(AuthController.setupConfirmPending));
 
 router.get('/me', requireAuth, asyncHandler(AuthController.me));
+router.post('/refresh', requireAuth, asyncHandler(AuthController.refresh));
 router.post('/totp/setup', requireAuth, asyncHandler(AuthController.setupTotp));
 router.post('/totp/enable', requireAuth, asyncHandler(AuthController.enableTotp));
 router.post('/totp/disable', requireAuth, asyncHandler(AuthController.disableTotp));
