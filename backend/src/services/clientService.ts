@@ -9,16 +9,18 @@ export async function createIntake(body: IntakeBody): Promise<Client> {
   const rows = await sql`
     INSERT INTO clients (
       reference_no, queue_number, transaction_date,
-      first_name, middle_name, last_name, suffix, sex, birth_date, civil_status,
-      contact_no, email, address, city, province, occupation, employer, concern,
+      first_name, middle_name, last_name, suffix, sex,
+      contact_no, email, city_id, occupation, employer,
+      date_of_employment, union_member, company_city_id, pending_complaint_types,
       is_pwd, is_senior, is_pregnant
     ) VALUES (
       ${referenceNo}, ${queueNumber}, ${transactionDate},
       ${body.first_name}, ${body.middle_name ?? null}, ${body.last_name}, ${body.suffix ?? null},
-      ${body.sex ?? null}, ${body.birth_date || null}, ${body.civil_status ?? null},
-      ${body.contact_no ?? null}, ${body.email ?? null}, ${body.address ?? null},
-      ${body.city ?? null}, ${body.province ?? null}, ${body.occupation ?? null},
-      ${body.employer ?? null}, ${body.concern ?? null},
+      ${body.sex ?? null},
+      ${body.contact_no ?? null}, ${body.email ?? null}, ${body.city_id ?? null},
+      ${body.occupation ?? null}, ${body.employer ?? null},
+      ${body.date_of_employment || null}, ${body.union_member ?? null}, ${body.company_city_id ?? null},
+      ${body.pending_complaint_types ?? null},
       ${body.is_pwd ?? false}, ${body.is_senior ?? false}, ${body.is_pregnant ?? false}
     )
     RETURNING *
@@ -198,9 +200,12 @@ export async function listCompletedByLawyer(
   const rows = await sql`
     SELECT
       c.*,
+      cm.city_municipality AS city,
+      cm.province AS province,
       MAX(ro.office_name) AS referred_office_name,
       STRING_AGG(ic.category_name, ', ' ORDER BY ic.category_name) AS issue_categories
     FROM clients c
+    LEFT JOIN cities_municipalities cm ON cm.id = c.city_id
     LEFT JOIN referred_offices ro ON ro.office_id = c.referred_office_id
     LEFT JOIN client_issues ci ON ci.client_id = c.client_id
     LEFT JOIN issue_categories ic ON ic.category_id = ci.category_id
@@ -215,7 +220,7 @@ export async function listCompletedByLawyer(
         OR (c.first_name || ' ' || c.last_name) ILIKE ${searchLike}::text
         OR c.employer ILIKE ${searchLike}::text
       )
-    GROUP BY c.client_id
+    GROUP BY c.client_id, cm.city_municipality, cm.province
     ORDER BY c.updated_at DESC
   `;
   return rows as CompletedTransaction[];

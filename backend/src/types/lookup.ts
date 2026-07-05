@@ -1,3 +1,11 @@
+export interface CityMunicipality {
+  id: number;
+  city_municipality: string;
+  province: string;
+  region: string;
+  is_city: boolean;
+}
+
 export interface IssueCategory {
   category_id: number;
   category_group: string;

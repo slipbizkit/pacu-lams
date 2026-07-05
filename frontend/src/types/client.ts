@@ -1,6 +1,24 @@
 export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'completed';
 export type ClientSex = 'male' | 'female';
 export type CivilStatus = 'single' | 'married' | 'widowed' | 'separated' | 'divorced';
+export type PendingComplaintType = 'NLRC' | 'DOLE Regional/Field Office' | 'NCMB' | 'DMW' | 'OWWA' | 'Others';
+
+export interface CityMunicipality {
+  id: number;
+  city_municipality: string;
+  province: string;
+  region: string;
+  is_city: boolean;
+}
+
+export const PENDING_COMPLAINT_TYPES: PendingComplaintType[] = [
+  'NLRC',
+  'DOLE Regional/Field Office',
+  'NCMB',
+  'DMW',
+  'OWWA',
+  'Others',
+];
 
 export interface Client {
   client_id: number;
@@ -20,11 +38,14 @@ export interface Client {
   email: string | null;
 
   address: string | null;
-  city: string | null;
-  province: string | null;
+  city_id: number | null;
 
   occupation: string | null;
   employer: string | null;
+  date_of_employment: string | null;
+  union_member: boolean | null;
+  company_city_id: number | null;
+  pending_complaint_types: PendingComplaintType[] | null;
 
   concern: string | null;
 
@@ -55,6 +76,8 @@ export interface HistoryFilters {
 export interface CompletedTransaction extends Client {
   referred_office_name: string | null;
   issue_categories: string | null;
+  city: string | null;
+  province: string | null;
 }
 
 export interface IssueTag {
@@ -94,16 +117,15 @@ export interface IntakeBody {
   last_name: string;
   suffix?: string;
   sex?: ClientSex;
-  birth_date?: string;
-  civil_status?: CivilStatus;
   contact_no?: string;
   email?: string;
-  address?: string;
-  city?: string;
-  province?: string;
+  city_id?: number;
   occupation?: string;
+  date_of_employment?: string;
+  union_member?: boolean;
   employer?: string;
-  concern?: string;
+  company_city_id?: number;
+  pending_complaint_types?: PendingComplaintType[];
   is_pwd?: boolean;
   is_senior?: boolean;
   is_pregnant?: boolean;
@@ -182,6 +204,7 @@ export interface ReportRow {
   age: number | null;
   city: string | null;
   province: string | null;
+  region: string | null;
   is_senior: boolean;
   is_pwd: boolean;
   is_pregnant: boolean;

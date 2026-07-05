@@ -19,8 +19,8 @@ export async function runReport(filters: ReportFilters): Promise<ReportRow[]> {
   if (filters.lawyer_id) addCondition('c.assigned_lawyer_id = ?', filters.lawyer_id);
   if (filters.referred_office_id) addCondition('c.referred_office_id = ?', filters.referred_office_id);
   if (filters.sex) addCondition('c.sex = ?', filters.sex);
-  if (filters.city) addCondition('c.city ILIKE ?', `%${filters.city}%`);
-  if (filters.province) addCondition('c.province ILIKE ?', `%${filters.province}%`);
+  if (filters.city) addCondition('cm.city_municipality ILIKE ?', `%${filters.city}%`);
+  if (filters.province) addCondition('cm.province ILIKE ?', `%${filters.province}%`);
   if (filters.status) addCondition('c.status = ?', filters.status);
   if (filters.priority_only) conditions.push('(c.is_senior OR c.is_pwd OR c.is_pregnant)');
   if (filters.min_age != null) addCondition('DATE_PART(\'year\', AGE(CURRENT_DATE, c.birth_date)) >= ?', filters.min_age);
@@ -37,7 +37,8 @@ export async function runReport(filters: ReportFilters): Promise<ReportRow[]> {
       c.client_id, c.reference_no, c.queue_number, c.transaction_date,
       c.first_name, c.last_name, c.sex,
       DATE_PART('year', AGE(CURRENT_DATE, c.birth_date))::int AS age,
-      c.city, c.province, c.is_senior, c.is_pwd, c.is_pregnant, c.status,
+      cm.city_municipality AS city, cm.province AS province, cm.region AS region,
+      c.is_senior, c.is_pwd, c.is_pregnant, c.status,
       TRIM(CONCAT(u.first_name, ' ', u.last_name)) AS lawyer_name,
       ro.office_name AS referred_office,
       (
@@ -47,6 +48,7 @@ export async function runReport(filters: ReportFilters): Promise<ReportRow[]> {
         WHERE ci.client_id = c.client_id
       ) AS issue_categories
     FROM clients c
+    LEFT JOIN cities_municipalities cm ON cm.id = c.city_id
     LEFT JOIN users u ON u.user_id = c.assigned_lawyer_id
     LEFT JOIN referred_offices ro ON ro.office_id = c.referred_office_id
     ${where}

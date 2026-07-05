@@ -5,6 +5,9 @@ import * as LookupController from '../controllers/lookupController';
 
 const router = Router();
 
+// Public — no auth. Backs the City/Municipality dropdown on the public intake form.
+router.get('/cities-municipalities', asyncHandler(LookupController.listCitiesMunicipalities));
+
 router.get('/issue-categories', requireAuth, asyncHandler(LookupController.listIssueCategories));
 router.get('/referred-offices', requireAuth, asyncHandler(LookupController.listReferredOffices));
 

@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import * as LookupService from '../services/lookupService';
 import {
@@ -7,6 +7,12 @@ import {
   UpdateIssueCategoryBody,
   UpdateReferredOfficeBody,
 } from '../types/lookup';
+
+// Public — no auth. Backs the City/Municipality dropdown on the public intake form.
+export async function listCitiesMunicipalities(_req: Request, res: Response) {
+  const cities = await LookupService.listCitiesMunicipalities();
+  res.json(cities);
+}
 
 export async function listIssueCategories(_req: AuthRequest, res: Response) {
   const categories = await LookupService.listActiveIssueCategories();

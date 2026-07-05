@@ -24,6 +24,7 @@ export interface ReportRow {
   age: number | null;
   city: string | null;
   province: string | null;
+  region: string | null;
   is_senior: boolean;
   is_pwd: boolean;
   is_pregnant: boolean;

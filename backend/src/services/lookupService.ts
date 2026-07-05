@@ -1,5 +1,6 @@
 import sql from '../db';
 import {
+  CityMunicipality,
   CreateIssueCategoryBody,
   CreateReferredOfficeBody,
   IssueCategory,
@@ -7,6 +8,15 @@ import {
   UpdateIssueCategoryBody,
   UpdateReferredOfficeBody,
 } from '../types/lookup';
+
+export async function listCitiesMunicipalities(): Promise<CityMunicipality[]> {
+  const rows = await sql`
+    SELECT id, city_municipality, province, region, is_city
+    FROM cities_municipalities
+    ORDER BY city_municipality
+  `;
+  return rows as CityMunicipality[];
+}
 
 export async function listActiveIssueCategories(): Promise<IssueCategory[]> {
   const rows = await sql`

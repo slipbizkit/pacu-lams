@@ -1,5 +1,6 @@
 import type { CreateUserBody, CreateUserResult, LoginResponse, TotpSetupResponse, UpdateUserBody, User } from '../types/user';
 import type {
+  CityMunicipality,
   Client,
   CompletedTransaction,
   ConsultationBody,
@@ -149,6 +150,7 @@ export const userService = {
 };
 
 export const lookupService = {
+  citiesMunicipalities: () => apiFetch<CityMunicipality[]>('/lookups/cities-municipalities'),
   issueCategories: () => apiFetch<IssueCategory[]>('/lookups/issue-categories'),
   referredOffices: () => apiFetch<ReferredOffice[]>('/lookups/referred-offices'),
   allIssueCategories: () => apiFetch<IssueCategory[]>('/lookups/issue-categories/all'),

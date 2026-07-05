@@ -3,11 +3,18 @@ import { AuthRequest } from '../middleware/auth';
 import * as ClientService from '../services/clientService';
 import * as LookupService from '../services/lookupService';
 import { buildReferralPdf } from '../services/referralPdfService';
-import { ConsultationBody, HistoryFilters, IntakeBody, ClientSex, CivilStatus } from '../types/client';
+import { ConsultationBody, HistoryFilters, IntakeBody, ClientSex, PendingComplaintType } from '../types/client';
 import { SubmitFeedbackBody } from '../types/feedback';
 
 const SEX_VALUES: ClientSex[] = ['male', 'female'];
-const CIVIL_STATUS_VALUES: CivilStatus[] = ['single', 'married', 'widowed', 'separated', 'divorced'];
+const PENDING_COMPLAINT_TYPE_VALUES: PendingComplaintType[] = [
+  'NLRC',
+  'DOLE Regional/Field Office',
+  'NCMB',
+  'DMW',
+  'OWWA',
+  'Others',
+];
 
 export async function intake(req: Request, res: Response) {
   const body = req.body as IntakeBody;
@@ -18,8 +25,18 @@ export async function intake(req: Request, res: Response) {
   if (body.sex && !SEX_VALUES.includes(body.sex)) {
     return res.status(400).json({ message: 'Invalid sex value' });
   }
-  if (body.civil_status && !CIVIL_STATUS_VALUES.includes(body.civil_status)) {
-    return res.status(400).json({ message: 'Invalid civil status value' });
+  if (
+    body.pending_complaint_types &&
+    (!Array.isArray(body.pending_complaint_types) ||
+      body.pending_complaint_types.some((t) => !PENDING_COMPLAINT_TYPE_VALUES.includes(t)))
+  ) {
+    return res.status(400).json({ message: 'Invalid pending complaint type value' });
+  }
+  if (body.city_id != null && !Number.isInteger(body.city_id)) {
+    return res.status(400).json({ message: 'Invalid city_id value' });
+  }
+  if (body.company_city_id != null && !Number.isInteger(body.company_city_id)) {
+    return res.status(400).json({ message: 'Invalid company_city_id value' });
   }
 
   const client = await ClientService.createIntake({
