@@ -1,0 +1,105 @@
+/*
+ * Intake wizard: step progress bar, step transitions, and field error
+ * feedback. Scoped under .pacu-wizard-* so it never leaks into other pages.
+ */
+
+.pacu-wizard-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pacu-wizard-dot {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--pacu-border);
+  transition: background-color 0.25s ease;
+}
+
+.pacu-wizard-dot.is-active,
+.pacu-wizard-dot.is-done {
+  background-color: var(--pacu-accent);
+}
+
+/* Step transition: fade + slide, direction-aware via data-dir */
+.pacu-wizard-step {
+  animation: pacu-wizard-step-in 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pacu-wizard-step[data-dir='back'] {
+  animation-name: pacu-wizard-step-in-back;
+}
+
+@keyframes pacu-wizard-step-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pacu-wizard-step-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.pacu-wizard-field.is-error .form-control,
+.pacu-wizard-field.is-error .is-invalid {
+  border-color: var(--pacu-danger);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.pacu-wizard-error {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--pacu-danger);
+  margin-top: 0.35rem;
+}
+
+.pacu-wizard-shake {
+  animation: pacu-wizard-shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes pacu-wizard-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+.pacu-wizard-review-section + .pacu-wizard-review-section {
+  margin-top: 1.5rem;
+}
+
+.pacu-wizard-review-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--pacu-border);
+  font-size: 0.9rem;
+}
+
+.pacu-wizard-review-row:last-child {
+  border-bottom: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pacu-wizard-step,
+  .pacu-wizard-shake {
+    animation: none;
+  }
+}

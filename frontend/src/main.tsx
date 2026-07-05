@@ -7,6 +7,7 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './styles/themes.css';
 import './styles/auth.css';
 import './styles/sidebar.css';
+import './styles/intake.css';
 import './index.css';
 import App from './App';
 
