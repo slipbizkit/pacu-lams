@@ -1,7 +1,9 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext';
 import { useSidebar } from '../context/SidebarContext';
+import { clientService } from '../services/api';
 import type { UserRole } from '../types/user';
 import { BrandMark } from './BrandMark';
 
@@ -41,6 +43,31 @@ export function Sidebar() {
   const { collapsed, close } = useSidebar();
   const navigate = useNavigate();
   const visibleItems = NAV_ITEMS.filter((item) => !item.roles || (role && item.roles.includes(role)));
+
+  const [queueCount, setQueueCount] = useState<number | null>(null);
+  const [myClientsCount, setMyClientsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const canSeeQueue = role && ['personnel', 'lawyer', 'admin'].includes(role);
+    const canSeeClients = role === 'lawyer';
+
+    async function fetchCounts() {
+      const [queueResult, clientsResult] = await Promise.allSettled([
+        canSeeQueue ? clientService.listQueue() : Promise.resolve(null),
+        canSeeClients ? clientService.listMine() : Promise.resolve(null),
+      ]);
+      if (queueResult.status === 'fulfilled' && queueResult.value !== null) {
+        setQueueCount(queueResult.value.length);
+      }
+      if (clientsResult.status === 'fulfilled' && clientsResult.value !== null) {
+        setMyClientsCount(clientsResult.value.length);
+      }
+    }
+
+    fetchCounts();
+    const id = setInterval(fetchCounts, 30_000);
+    return () => clearInterval(id);
+  }, [role]);
   const groups = GROUP_ORDER
     .map((group) => ({ group, label: GROUP_LABELS[group], items: visibleItems.filter((i) => i.group === group) }))
     .filter((g) => g.items.length > 0);
@@ -85,18 +112,29 @@ export function Sidebar() {
           <div key={group.group} className={idx === 0 ? '' : 'mt-4'}>
             <div className="pacu-eyebrow pacu-sidebar-label px-4 mb-2">{group.label}</div>
             <nav className="d-flex flex-column gap-1 px-3">
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  title={item.label}
-                  onClick={handleNavClick}
-                  className={({ isActive }) => `pacu-nav-link nav-link d-flex align-items-center gap-2 px-3 py-2 ${isActive ? 'active' : ''}`}
-                >
-                  <i className={`bi ${item.icon}`} />
-                  <span className="pacu-sidebar-label">{item.label}</span>
-                </NavLink>
-              ))}
+              {group.items.map((item) => {
+                const badgeCount =
+                  item.to === '/queue' ? queueCount :
+                  item.to === '/clients' ? myClientsCount :
+                  null;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    title={item.label}
+                    onClick={handleNavClick}
+                    className={({ isActive }) => `pacu-nav-link nav-link d-flex align-items-center gap-2 px-3 py-2 ${isActive ? 'active' : ''}`}
+                  >
+                    <i className={`bi ${item.icon}`} />
+                    <span className="pacu-sidebar-label">{item.label}</span>
+                    {badgeCount !== null && badgeCount > 0 && (
+                      <span className="badge rounded-pill ms-auto pacu-sidebar-label" style={{ backgroundColor: 'var(--bs-danger)', fontSize: '0.7rem' }}>
+                        {badgeCount}
+                      </span>
+                    )}
+                  </NavLink>
+                );
+              })}
             </nav>
           </div>
         ))}
