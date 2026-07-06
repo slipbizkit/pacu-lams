@@ -393,6 +393,14 @@ input:focus-visible,
   color: #fbbf24;
 }
 
+html[data-theme='dark'] .pacu-sidebar .pacu-eyebrow {
+  color: var(--bs-info);
+}
+
+html[data-theme='dark'] .pacu-navbar .text-muted {
+  color: var(--bs-info) !important;
+}
+
 .pacu-avatar {
   display: inline-flex;
   align-items: center;
