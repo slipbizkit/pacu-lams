@@ -48,7 +48,17 @@ export default function MyClientsPage() {
       window.dispatchEvent(new Event('pacu:counts-changed'));
       Swal.fire({ icon: 'success', title: `Claimed ${claimed.first_name} ${claimed.last_name}`, toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
     } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Could not claim next client', text: err instanceof Error ? err.message : 'Please try again' });
+      if (err instanceof Error && err.message === 'LAWYER_IN_PROGRESS') {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Cannot Accept Client',
+          html: 'You already have a client that is currently <strong>In Progress</strong>.<br><br>Please complete or mark the current client as <strong>Incomplete</strong> before accepting another client from the queue.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: 'var(--pacu-accent)',
+        });
+      } else {
+        Swal.fire({ icon: 'error', title: 'Could not claim next client', text: err instanceof Error ? err.message : 'Please try again' });
+      }
     } finally {
       setTakingNext(false);
     }
@@ -118,7 +128,7 @@ export default function MyClientsPage() {
           {clients.map((c) => (
             <div key={c.client_id} className="col-md-6 col-lg-4">
               <div className="card h-100">
-                <div className="card-body p-4">
+                <div className="card-body p-4 d-flex flex-column">
                   <div className="d-flex justify-content-between align-items-start mb-2">
                     <span className="pacu-mono fw-semibold" style={{ fontSize: '0.85rem' }}>#{c.queue_number}</span>
                     {c.status === 'incomplete' ? (
@@ -135,12 +145,17 @@ export default function MyClientsPage() {
                       {c.is_pregnant && <span className="pacu-badge">Pregnant</span>}
                     </div>
                   )}
-                  <p className="text-muted mb-3" style={{ fontSize: '0.85rem' }}>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>
                     {c.concern || 'No concern noted at intake.'}
                   </p>
-                  <button className="btn btn-sm btn-primary w-100" onClick={() => setActiveClient(c)}>
-                    Open
-                  </button>
+                  <div className="mt-auto pt-3 d-flex justify-content-center">
+                    <button
+                      className="btn btn-sm btn-primary pacu-client-card-btn"
+                      onClick={() => setActiveClient(c)}
+                    >
+                      Open
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -35,6 +35,18 @@
   gap: 0.35rem;
 }
 
+/* Client card: fixed-width "Open" button, bottom-aligned via mt-auto on its wrapper */
+.pacu-client-card-btn {
+  width: 25%;
+  min-width: 80px;
+}
+
+@media (max-width: 767.98px) {
+  .pacu-client-card-btn {
+    width: 100%;
+  }
+}
+
 .pacu-panel-footer {
   display: flex;
   justify-content: flex-end;
