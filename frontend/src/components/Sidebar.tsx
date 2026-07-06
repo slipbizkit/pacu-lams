@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext';
 import { useSidebar } from '../context/SidebarContext';
@@ -47,27 +47,30 @@ export function Sidebar() {
   const [queueCount, setQueueCount] = useState<number | null>(null);
   const [myClientsCount, setMyClientsCount] = useState<number | null>(null);
 
-  useEffect(() => {
+  const fetchCounts = useCallback(async () => {
     const canSeeQueue = role && ['personnel', 'lawyer', 'admin'].includes(role);
     const canSeeClients = role === 'lawyer';
-
-    async function fetchCounts() {
-      const [queueResult, clientsResult] = await Promise.allSettled([
-        canSeeQueue ? clientService.listQueue() : Promise.resolve(null),
-        canSeeClients ? clientService.listMine() : Promise.resolve(null),
-      ]);
-      if (queueResult.status === 'fulfilled' && queueResult.value !== null) {
-        setQueueCount(queueResult.value.length);
-      }
-      if (clientsResult.status === 'fulfilled' && clientsResult.value !== null) {
-        setMyClientsCount(clientsResult.value.length);
-      }
+    const [queueResult, clientsResult] = await Promise.allSettled([
+      canSeeQueue ? clientService.listQueue() : Promise.resolve(null),
+      canSeeClients ? clientService.listMine() : Promise.resolve(null),
+    ]);
+    if (queueResult.status === 'fulfilled' && queueResult.value !== null) {
+      setQueueCount(queueResult.value.length);
     }
+    if (clientsResult.status === 'fulfilled' && clientsResult.value !== null) {
+      setMyClientsCount(clientsResult.value.length);
+    }
+  }, [role]);
 
+  useEffect(() => {
     fetchCounts();
     const id = setInterval(fetchCounts, 30_000);
-    return () => clearInterval(id);
-  }, [role]);
+    window.addEventListener('pacu:counts-changed', fetchCounts);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('pacu:counts-changed', fetchCounts);
+    };
+  }, [fetchCounts]);
   const groups = GROUP_ORDER
     .map((group) => ({ group, label: GROUP_LABELS[group], items: visibleItems.filter((i) => i.group === group) }))
     .filter((g) => g.items.length > 0);
