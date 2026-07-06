@@ -3,23 +3,122 @@
  * feedback. Scoped under .pacu-wizard-* so it never leaks into other pages.
  */
 
-.pacu-wizard-progress {
+/* Shell: ~78% of desktop content width, centered, collapsing to full width
+   on tablet/mobile so the card never feels cramped or edge-to-edge. */
+.pacu-intake-shell {
+  width: 100%;
+  max-width: min(78%, 1320px);
+}
+
+@media (max-width: 991.98px) {
+  .pacu-intake-shell {
+    max-width: 720px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .pacu-intake-shell {
+    max-width: 100%;
+  }
+}
+
+.pacu-intake-card {
+  width: 100%;
+}
+
+/* Stepper: numbered circles connected by a progress line. Reuses the same
+   `step` index the old dot-bar consumed — purely a presentation change. */
+.pacu-stepper {
   display: flex;
+  align-items: flex-start;
+}
+
+.pacu-step {
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  flex: 0 0 auto;
   gap: 0.5rem;
 }
 
-.pacu-wizard-dot {
-  flex: 1 1 auto;
-  height: 4px;
-  border-radius: 2px;
-  background-color: var(--pacu-border);
-  transition: background-color 0.25s ease;
+.pacu-step-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid var(--pacu-border);
+  background-color: var(--pacu-surface);
+  color: var(--pacu-text-muted);
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
 }
 
-.pacu-wizard-dot.is-active,
-.pacu-wizard-dot.is-done {
+.pacu-step.is-active .pacu-step-circle {
+  border-color: var(--pacu-accent);
+  color: var(--pacu-accent);
+  box-shadow: 0 0 0 4px var(--pacu-accent-soft);
+  transform: scale(1.06);
+}
+
+.pacu-step.is-done .pacu-step-circle {
+  border-color: var(--pacu-accent);
   background-color: var(--pacu-accent);
+  color: var(--pacu-accent-contrast);
+}
+
+.pacu-step-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--pacu-text-muted);
+  text-align: center;
+  white-space: nowrap;
+  transition: color 0.25s ease;
+}
+
+.pacu-step.is-active .pacu-step-label {
+  color: var(--pacu-text);
+}
+
+.pacu-step.is-done .pacu-step-label {
+  color: var(--pacu-text-secondary);
+}
+
+.pacu-step-connector {
+  flex: 1 1 auto;
+  align-self: flex-start;
+  margin-top: 18px;
+  height: 2px;
+  background-color: var(--pacu-border);
+  transition: background-color 0.35s ease;
+}
+
+.pacu-step-connector.is-done {
+  background-color: var(--pacu-accent);
+}
+
+@media (max-width: 575.98px) {
+  .pacu-step-label {
+    display: none;
+  }
+
+  .pacu-step.is-active .pacu-step-label {
+    display: block;
+  }
+}
+
+/* Nav footer: consistently anchored below the step content with its own
+   separator, so Previous/Next never shift position as step content varies. */
+.pacu-wizard-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--pacu-border);
 }
 
 /* Step transition: fade + slide, direction-aware via data-dir */

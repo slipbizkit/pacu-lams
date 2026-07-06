@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
-import { clientService } from '../services/api';
-import type { Client } from '../types/client';
-import { ConsultationModal } from '../components/ConsultationModal';
+import { clientService, lookupService } from '../services/api';
+import type { Client, CityMunicipality } from '../types/client';
+import { ClientInfoPanel } from '../components/ClientInfoPanel';
+import { CompleteTransactionPanel } from '../components/CompleteTransactionPanel';
+import { useAuth } from '../context/AuthContext';
 
 function isPriority(c: Client) {
   return c.is_senior || c.is_pwd || c.is_pregnant;
 }
 
 export default function MyClientsPage() {
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
+  const [cities, setCities] = useState<CityMunicipality[]>([]);
   const [loading, setLoading] = useState(true);
   const [takingNext, setTakingNext] = useState(false);
   const [activeClient, setActiveClient] = useState<Client | null>(null);
@@ -27,6 +31,7 @@ export default function MyClientsPage() {
 
   useEffect(() => {
     load();
+    lookupService.citiesMunicipalities().then(setCities).catch(() => {});
   }, []);
 
   async function handleTakeNext() {
@@ -55,6 +60,31 @@ export default function MyClientsPage() {
     } else {
       setClients((prev) => prev.map((c) => (c.client_id === updated.client_id ? updated : c)));
     }
+  }
+
+  if (activeClient) {
+    const lawyerName = user ? [user.first_name, user.last_name].filter(Boolean).join(' ') : undefined;
+    return (
+      <div>
+        <button type="button" className="btn btn-outline-secondary btn-sm mb-3" onClick={() => setActiveClient(null)}>
+          <i className="bi bi-arrow-left me-2" />
+          Back to My Clients
+        </button>
+
+        <div className="row g-4">
+          <div className="col-lg-5">
+            <ClientInfoPanel client={activeClient} cities={cities} lawyerName={lawyerName} />
+          </div>
+          <div className="col-lg-7">
+            <CompleteTransactionPanel
+              client={activeClient}
+              onCancel={() => setActiveClient(null)}
+              onSaved={handleSaved}
+            />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -114,10 +144,6 @@ export default function MyClientsPage() {
             </div>
           ))}
         </div>
-      )}
-
-      {activeClient && (
-        <ConsultationModal client={activeClient} onClose={() => setActiveClient(null)} onSaved={handleSaved} />
       )}
     </div>
   );

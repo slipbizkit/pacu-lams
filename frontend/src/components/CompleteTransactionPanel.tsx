@@ -4,9 +4,9 @@ import Swal from 'sweetalert2';
 import { clientService, lookupService } from '../services/api';
 import type { Client, IssueCategory, IssueTag, ReferredOffice } from '../types/client';
 
-interface ConsultationModalProps {
+interface CompleteTransactionPanelProps {
   client: Client;
-  onClose: () => void;
+  onCancel: () => void;
   onSaved: (client: Client) => void;
 }
 
@@ -276,10 +276,10 @@ function IssueMultiSelect({ categories, selectedIds, onChange }: IssueMultiSelec
 }
 
 // ---------------------------------------------------------------------------
-// ConsultationModal
+// CompleteTransactionPanel
 // ---------------------------------------------------------------------------
 
-export function ConsultationModal({ client, onClose, onSaved }: ConsultationModalProps) {
+export function CompleteTransactionPanel({ client, onCancel, onSaved }: CompleteTransactionPanelProps) {
   const [categories, setCategories] = useState<IssueCategory[]>([]);
   const [offices, setOffices] = useState<ReferredOffice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -293,12 +293,6 @@ export function ConsultationModal({ client, onClose, onSaved }: ConsultationModa
   const [officeId, setOfficeId] = useState<number | ''>(client.referred_office_id ?? '');
   const [referralReason, setReferralReason] = useState(client.referred_reason ?? '');
   const [markIncomplete, setMarkIncomplete] = useState(false);
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -316,7 +310,7 @@ export function ConsultationModal({ client, onClose, onSaved }: ConsultationModa
       })
       .catch((err) => {
         Swal.fire({ icon: 'error', title: 'Could not load consultation data', text: err instanceof Error ? err.message : 'Please try again' });
-        onClose();
+        onCancel();
       })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -342,6 +336,22 @@ export function ConsultationModal({ client, onClose, onSaved }: ConsultationModa
     e.preventDefault();
 
     if (!markIncomplete) {
+      if (selectedIds.size === 0 && legalAdvice.trim() === '') {
+        const result = await Swal.fire({
+          icon: 'warning',
+          title: 'Incomplete Transaction',
+          html: 'No issue category has been selected and no legal advice has been entered.<br><br>If you are not yet ready to complete this consultation, please mark the transaction as <strong>Incomplete</strong> so you can continue it later.',
+          showCancelButton: true,
+          confirmButtonText: 'Mark as Incomplete',
+          cancelButtonText: 'Continue Editing',
+          confirmButtonColor: 'var(--pacu-accent)',
+        });
+        if (result.isConfirmed) {
+          setMarkIncomplete(true);
+        }
+        return;
+      }
+
       const confirm = await Swal.fire({
         icon: 'warning',
         title: 'Complete this transaction?',
@@ -380,146 +390,136 @@ export function ConsultationModal({ client, onClose, onSaved }: ConsultationModa
   }
 
   return (
-    <>
-      <div className="modal d-block" tabIndex={-1} role="dialog">
-        <div className="modal-dialog modal-lg modal-dialog-scrollable">
-          <div className="modal-content">
-            <div className="modal-header">
-              <div>
-                <h5 className="modal-title pacu-display">Complete Transaction</h5>
-                <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>
-                  {client.first_name} {client.last_name} &middot; Queue #{client.queue_number}
-                </p>
+    <div className="card pacu-transaction-panel">
+      <div className="card-body p-4 p-md-5">
+        <div className="mb-4">
+          <h5 className="pacu-display mb-1">Complete Transaction</h5>
+          <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>
+            {client.first_name} {client.last_name} &middot; Queue #{client.queue_number}
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="d-flex justify-content-center py-5">
+            <div className="spinner-border text-primary" />
+          </div>
+        ) : (
+          <form onSubmit={handleSave}>
+            {client.concern && (
+              <div className="mb-4 p-3" style={{ backgroundColor: 'var(--pacu-bg)', borderRadius: 'var(--pacu-radius)' }}>
+                <p className="pacu-eyebrow mb-1">Client's stated concern</p>
+                <p className="mb-0" style={{ fontSize: '0.9rem' }}>{client.concern}</p>
               </div>
-              <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
+            )}
+
+            <p className="pacu-eyebrow mb-2">Issue Categories</p>
+            <div className="mb-4">
+              <IssueMultiSelect
+                categories={categories}
+                selectedIds={selectedIds}
+                onChange={setSelectedIds}
+              />
             </div>
 
-            {loading ? (
-              <div className="modal-body d-flex justify-content-center py-5">
-                <div className="spinner-border text-primary" />
+            {hasOthersSelected && (
+              <div className="mb-4">
+                <label className="form-label">Please describe the "Others" issue</label>
+                <input className="form-control" value={othersText} onChange={(e) => setOthersText(e.target.value)} />
               </div>
-            ) : (
-              <form onSubmit={handleSave} className="d-flex flex-column overflow-hidden flex-fill">
-                <div className="modal-body">
-                  {client.concern && (
-                    <div className="mb-4 p-3" style={{ backgroundColor: 'var(--pacu-bg)', borderRadius: 'var(--pacu-radius)' }}>
-                      <p className="pacu-eyebrow mb-1">Client's stated concern</p>
-                      <p className="mb-0" style={{ fontSize: '0.9rem' }}>{client.concern}</p>
-                    </div>
-                  )}
-
-                  <p className="pacu-eyebrow mb-2">Issue Categories</p>
-                  <div className="mb-4">
-                    <IssueMultiSelect
-                      categories={categories}
-                      selectedIds={selectedIds}
-                      onChange={setSelectedIds}
-                    />
-                  </div>
-
-                  {hasOthersSelected && (
-                    <div className="mb-4">
-                      <label className="form-label">Please describe the "Others" issue</label>
-                      <input className="form-control" value={othersText} onChange={(e) => setOthersText(e.target.value)} />
-                    </div>
-                  )}
-
-                  <p className="pacu-eyebrow mb-3">Legal Advice</p>
-                  <div className="mb-4">
-                    <textarea
-                      className="form-control"
-                      rows={5}
-                      placeholder="Record the legal advice given to the client..."
-                      value={legalAdvice}
-                      onChange={(e) => setLegalAdvice(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="d-flex align-items-center justify-content-between mb-3">
-                    <div className="form-check mb-0">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="referring"
-                        checked={referring}
-                        onChange={(e) => setReferring(e.target.checked)}
-                      />
-                      <label className="form-check-label fw-semibold" htmlFor="referring">
-                        Refer to another office
-                      </label>
-                    </div>
-                    {client.referred_office_id && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-secondary"
-                        onClick={handleDownloadReferral}
-                        disabled={downloadingReferral}
-                      >
-                        {downloadingReferral ? (
-                          <span className="spinner-border spinner-border-sm me-1" />
-                        ) : (
-                          <i className="bi bi-file-earmark-pdf me-1" />
-                        )}
-                        Download Referral Form
-                      </button>
-                    )}
-                  </div>
-
-                  {referring && (
-                    <div className="row g-3 mb-4">
-                      <div className="col-md-5">
-                        <label className="form-label">Referral office</label>
-                        <select className="form-select" value={officeId} onChange={(e) => setOfficeId(e.target.value ? Number(e.target.value) : '')}>
-                          <option value="">Select an office</option>
-                          {offices.map((o) => (
-                            <option key={o.office_id} value={o.office_id}>{o.office_name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="col-md-7">
-                        <label className="form-label">Reason for referral</label>
-                        <input className="form-control" value={referralReason} onChange={(e) => setReferralReason(e.target.value)} />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="card">
-                    <div className="card-body p-3">
-                      <div className="form-check">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          id="markIncomplete"
-                          checked={markIncomplete}
-                          onChange={(e) => setMarkIncomplete(e.target.checked)}
-                        />
-                        <label className="form-check-label" htmlFor="markIncomplete">
-                          <span className="fw-semibold d-block">Mark as incomplete</span>
-                          <span className="text-muted" style={{ fontSize: '0.85rem' }}>
-                            Save what's filled in so far and come back to finish later. Nothing above is required
-                            while this is checked.
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-outline-secondary" onClick={onClose}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>
-                    {saving ? <span className="spinner-border spinner-border-sm me-2" /> : null}
-                    {markIncomplete ? 'Save & Keep In Progress' : 'Complete Transaction'}
-                  </button>
-                </div>
-              </form>
             )}
-          </div>
-        </div>
+
+            <p className="pacu-eyebrow mb-3">Legal Advice</p>
+            <div className="mb-4">
+              <textarea
+                className="form-control"
+                rows={5}
+                placeholder="Record the legal advice given to the client..."
+                value={legalAdvice}
+                onChange={(e) => setLegalAdvice(e.target.value)}
+              />
+            </div>
+
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <div className="form-check mb-0">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="referring"
+                  checked={referring}
+                  onChange={(e) => setReferring(e.target.checked)}
+                />
+                <label className="form-check-label fw-semibold" htmlFor="referring">
+                  Refer to another office
+                </label>
+              </div>
+              {client.referred_office_id && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={handleDownloadReferral}
+                  disabled={downloadingReferral}
+                >
+                  {downloadingReferral ? (
+                    <span className="spinner-border spinner-border-sm me-1" />
+                  ) : (
+                    <i className="bi bi-file-earmark-pdf me-1" />
+                  )}
+                  Download Referral Form
+                </button>
+              )}
+            </div>
+
+            {referring && (
+              <div className="row g-3 mb-4">
+                <div className="col-md-5">
+                  <label className="form-label">Referral office</label>
+                  <select className="form-select" value={officeId} onChange={(e) => setOfficeId(e.target.value ? Number(e.target.value) : '')}>
+                    <option value="">Select an office</option>
+                    {offices.map((o) => (
+                      <option key={o.office_id} value={o.office_id}>{o.office_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-md-7">
+                  <label className="form-label">Reason for referral</label>
+                  <input className="form-control" value={referralReason} onChange={(e) => setReferralReason(e.target.value)} />
+                </div>
+              </div>
+            )}
+
+            <div className="card">
+              <div className="card-body p-3">
+                <div className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="markIncomplete"
+                    checked={markIncomplete}
+                    onChange={(e) => setMarkIncomplete(e.target.checked)}
+                  />
+                  <label className="form-check-label" htmlFor="markIncomplete">
+                    <span className="fw-semibold d-block">Mark as incomplete</span>
+                    <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                      Save what's filled in so far and come back to finish later. Nothing above is required
+                      while this is checked.
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="pacu-panel-footer">
+              <button type="button" className="btn btn-outline-secondary" onClick={onCancel}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? <span className="spinner-border spinner-border-sm me-2" /> : null}
+                {markIncomplete ? 'Save & Keep In Progress' : 'Complete Transaction'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
-      <div className="modal-backdrop show" />
-    </>
+    </div>
   );
 }

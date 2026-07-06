@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { clientService, lookupService } from '../services/api';
 import type { CityMunicipality, ClientSex, IntakeBody, IntakeResult, PendingComplaintType } from '../types/client';
@@ -144,7 +144,7 @@ export default function IntakePage() {
       </div>
 
       <div className="d-flex justify-content-center px-3 pb-5">
-        <div style={{ width: '100%', maxWidth: 640 }}>
+        <div className="pacu-intake-shell">
           {result ? (
             <div className="card pacu-auth-success">
               <div className="card-body p-5 text-center">
@@ -163,67 +163,74 @@ export default function IntakePage() {
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit}>
-              <h1 className="pacu-display mb-1">Welcome</h1>
-              <p className="text-muted mb-3">Please tell us about yourself and what brings you in today.</p>
+            <div className="card pacu-intake-card">
+              <div className="card-body p-4 p-md-5">
+                <form onSubmit={handleSubmit}>
+                  <h1 className="pacu-display mb-1">Welcome</h1>
+                  <p className="text-muted mb-4">Please tell us about yourself and what brings you in today.</p>
 
-              <div className="mb-1 d-flex justify-content-between align-items-center">
-                <span className="pacu-eyebrow mb-0">
-                  Step {step + 1} of {TOTAL_STEPS}
-                </span>
-                <span className="text-muted" style={{ fontSize: '0.85rem' }}>{STEP_TITLES[step]}</span>
-              </div>
-              <div className="pacu-wizard-progress mb-4">
-                {STEP_TITLES.map((title, idx) => (
+                  <div className="pacu-stepper mb-4">
+                    {STEP_TITLES.map((title, idx) => (
+                      <Fragment key={title}>
+                        <div
+                          className={`pacu-step${idx === step ? ' is-active' : ''}${idx < step ? ' is-done' : ''}`}
+                        >
+                          <div className="pacu-step-circle">
+                            {idx < step ? <i className="bi bi-check-lg" /> : idx + 1}
+                          </div>
+                          <div className="pacu-step-label">{title}</div>
+                        </div>
+                        {idx < TOTAL_STEPS - 1 && (
+                          <div className={`pacu-step-connector${idx < step ? ' is-done' : ''}`} />
+                        )}
+                      </Fragment>
+                    ))}
+                  </div>
+
                   <div
-                    key={title}
-                    className={`pacu-wizard-dot${idx === step ? ' is-active' : ''}${idx < step ? ' is-done' : ''}`}
-                  />
-                ))}
-              </div>
+                    key={step}
+                    data-dir={direction}
+                    className={`pacu-wizard-step${shake ? ' pacu-wizard-shake' : ''}`}
+                  >
+                    {step === 0 && (
+                      <ClientInfoStep form={form} update={update} errors={errors} cities={cities} />
+                    )}
+                    {step === 1 && (
+                      <EmploymentStatusStep form={form} update={update} />
+                    )}
+                    {step === 2 && (
+                      <CompanyDetailsStep form={form} update={update} cities={cities} />
+                    )}
+                    {step === 3 && <ReviewStep form={form} cities={cities} />}
+                  </div>
 
-              <div
-                key={step}
-                data-dir={direction}
-                className={`pacu-wizard-step${shake ? ' pacu-wizard-shake' : ''}`}
-              >
-                {step === 0 && (
-                  <ClientInfoStep form={form} update={update} errors={errors} cities={cities} />
-                )}
-                {step === 1 && (
-                  <EmploymentStatusStep form={form} update={update} />
-                )}
-                {step === 2 && (
-                  <CompanyDetailsStep form={form} update={update} cities={cities} />
-                )}
-                {step === 3 && <ReviewStep form={form} cities={cities} />}
-              </div>
+                  <div className="pacu-wizard-nav">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={goBack}
+                      disabled={step === 0}
+                      style={{ visibility: step === 0 ? 'hidden' : 'visible' }}
+                    >
+                      <i className="bi bi-arrow-left me-2" />
+                      Previous
+                    </button>
 
-              <div className="d-flex justify-content-between mt-4">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={goBack}
-                  disabled={step === 0}
-                  style={{ visibility: step === 0 ? 'hidden' : 'visible' }}
-                >
-                  <i className="bi bi-arrow-left me-2" />
-                  Previous
-                </button>
-
-                {step < TOTAL_STEPS - 1 ? (
-                  <button type="button" className="btn btn-primary" onClick={goNext}>
-                    Next
-                    <i className="bi bi-arrow-right ms-2" />
-                  </button>
-                ) : (
-                  <button className="btn btn-primary" type="submit" disabled={submitting}>
-                    {submitting ? <span className="spinner-border spinner-border-sm me-2" /> : null}
-                    Submit Intake
-                  </button>
-                )}
+                    {step < TOTAL_STEPS - 1 ? (
+                      <button key="next" type="button" className="btn btn-primary" onClick={goNext}>
+                        Next
+                        <i className="bi bi-arrow-right ms-2" />
+                      </button>
+                    ) : (
+                      <button key="submit" className="btn btn-primary" type="submit" disabled={submitting}>
+                        {submitting ? <span className="spinner-border spinner-border-sm me-2" /> : null}
+                        Submit Intake
+                      </button>
+                    )}
+                  </div>
+                </form>
               </div>
-            </form>
+            </div>
           )}
         </div>
       </div>
@@ -259,7 +266,7 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
     <>
       <p className="pacu-eyebrow mb-3">Name of Client / Pangalan ng Kliyente</p>
       <div className="row g-3 mb-2">
-        <div className="col-md-4">
+        <div className="col-sm-6 col-lg-4">
           <label className="form-label">First name *</label>
           <div className={`pacu-wizard-field${errors.first_name ? ' is-error' : ''}`}>
             <input
@@ -273,11 +280,11 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
             )}
           </div>
         </div>
-        <div className="col-md-4">
+        <div className="col-sm-6 col-lg-4">
           <label className="form-label">Middle name</label>
           <input className="form-control" value={form.middle_name} onChange={(e) => update('middle_name', e.target.value)} />
         </div>
-        <div className="col-md-4">
+        <div className="col-sm-6 col-lg-4">
           <label className="form-label">Last name *</label>
           <div className={`pacu-wizard-field${errors.last_name ? ' is-error' : ''}`}>
             <input className="form-control" value={form.last_name} onChange={(e) => update('last_name', e.target.value)} />
@@ -289,11 +296,11 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
       </div>
 
       <div className="row g-3 mb-4">
-        <div className="col-md-3">
+        <div className="col-sm-6 col-lg-3">
           <label className="form-label">Suffix</label>
           <input className="form-control" placeholder="Jr., Sr., III" value={form.suffix} onChange={(e) => update('suffix', e.target.value)} />
         </div>
-        <div className="col-md-3">
+        <div className="col-sm-6 col-lg-3">
           <label className="form-label">Sex</label>
           <select className="form-select" value={form.sex ?? ''} onChange={(e) => update('sex', (e.target.value || undefined) as ClientSex | undefined)}>
             <option value="">Select</option>
@@ -301,11 +308,11 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
             <option value="female">Female</option>
           </select>
         </div>
-        <div className="col-md-3">
+        <div className="col-sm-6 col-lg-3">
           <label className="form-label">Contact number</label>
           <input className="form-control" value={form.contact_no} onChange={(e) => update('contact_no', e.target.value)} />
         </div>
-        <div className="col-md-3">
+        <div className="col-sm-6 col-lg-3">
           <label className="form-label">Email</label>
           <div className={`pacu-wizard-field${errors.email ? ' is-error' : ''}`}>
             <input type="email" className="form-control" value={form.email} onChange={(e) => update('email', e.target.value)} />
@@ -339,11 +346,11 @@ function EmploymentStatusStep({ form, update }: StepProps) {
     <>
       <p className="pacu-eyebrow mb-3">Employment</p>
       <div className="row g-3 mb-4">
-        <div className="col-md-6">
+        <div className="col-sm-6">
           <label className="form-label">Work Position / Posisyon sa Trabaho</label>
           <input className="form-control" value={form.occupation} onChange={(e) => update('occupation', e.target.value)} />
         </div>
-        <div className="col-md-6">
+        <div className="col-sm-6">
           <label className="form-label">Date of Employment / Kailan Nakapasok sa Trabaho</label>
           <input
             type="date"
@@ -413,19 +420,21 @@ function CompanyDetailsStep({ form, update, cities }: StepProps & { cities: City
   return (
     <>
       <p className="pacu-eyebrow mb-3">Company Details</p>
-      <div className="mb-3">
-        <label className="form-label">Name of Company / Pangalan ng Kumpanya</label>
-        <input className="form-control" value={form.employer} onChange={(e) => update('employer', e.target.value)} />
-      </div>
+      <div className="row g-3 mb-4">
+        <div className="col-lg-6">
+          <label className="form-label">Name of Company / Pangalan ng Kumpanya</label>
+          <input className="form-control" value={form.employer} onChange={(e) => update('employer', e.target.value)} />
+        </div>
 
-      <div className="mb-4">
-        <label className="form-label">Address of Company (City/Municipality)</label>
-        <SearchableSelect
-          options={toCityOptions(cities)}
-          value={form.company_city_id ?? null}
-          onChange={(id) => update('company_city_id', id ?? undefined)}
-          placeholder="Search for a city or municipality…"
-        />
+        <div className="col-lg-6">
+          <label className="form-label">Address of Company (City/Municipality)</label>
+          <SearchableSelect
+            options={toCityOptions(cities)}
+            value={form.company_city_id ?? null}
+            onChange={(id) => update('company_city_id', id ?? undefined)}
+            placeholder="Search for a city or municipality…"
+          />
+        </div>
       </div>
 
       <div className="mb-2">
