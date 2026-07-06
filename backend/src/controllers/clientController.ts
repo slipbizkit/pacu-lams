@@ -92,6 +92,11 @@ export async function claim(req: AuthRequest, res: Response) {
     return res.status(400).json({ message: 'Invalid client id' });
   }
 
+  const busy = await ClientService.hasInProgressClient(req.user!.id);
+  if (busy) {
+    return res.status(409).json({ message: 'LAWYER_IN_PROGRESS' });
+  }
+
   const result = await ClientService.assignToLawyer(clientId, req.user!.id);
 
   if ('error' in result) {
