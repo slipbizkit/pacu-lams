@@ -336,11 +336,17 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
     e.preventDefault();
 
     if (!markIncomplete) {
-      if (selectedIds.size === 0 && legalAdvice.trim() === '') {
+      const missingCategory = selectedIds.size === 0;
+      const missingAdvice = legalAdvice.trim() === '';
+      if (missingCategory || missingAdvice) {
+        const missingItems = [
+          missingCategory && 'No issue category has been selected.',
+          missingAdvice && 'No legal advice has been entered.',
+        ].filter(Boolean).join('<br>');
         const result = await Swal.fire({
           icon: 'warning',
           title: 'Incomplete Transaction',
-          html: 'No issue category has been selected and no legal advice has been entered.<br><br>If you are not yet ready to complete this consultation, please mark the transaction as <strong>Incomplete</strong> so you can continue it later.',
+          html: `${missingItems}<br><br>If you are not yet ready to complete this consultation, please mark the transaction as <strong>Incomplete</strong> so you can continue it later.`,
           showCancelButton: true,
           confirmButtonText: 'Mark as Incomplete',
           cancelButtonText: 'Continue Editing',
@@ -439,53 +445,57 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
               />
             </div>
 
-            <div className="d-flex align-items-center justify-content-between mb-3">
-              <div className="form-check mb-0">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="referring"
-                  checked={referring}
-                  onChange={(e) => setReferring(e.target.checked)}
-                />
-                <label className="form-check-label fw-semibold" htmlFor="referring">
-                  Refer to another office
-                </label>
-              </div>
-              {client.referred_office_id && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={handleDownloadReferral}
-                  disabled={downloadingReferral}
-                >
-                  {downloadingReferral ? (
-                    <span className="spinner-border spinner-border-sm me-1" />
-                  ) : (
-                    <i className="bi bi-file-earmark-pdf me-1" />
+            <div className="card mb-4">
+              <div className="card-body p-3">
+                <div className="d-flex align-items-center justify-content-between">
+                  <div className="form-check mb-0">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="referring"
+                      checked={referring}
+                      onChange={(e) => setReferring(e.target.checked)}
+                    />
+                    <label className="form-check-label fw-semibold" htmlFor="referring">
+                      Refer to another office
+                    </label>
+                  </div>
+                  {client.referred_office_id && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary"
+                      onClick={handleDownloadReferral}
+                      disabled={downloadingReferral}
+                    >
+                      {downloadingReferral ? (
+                        <span className="spinner-border spinner-border-sm me-1" />
+                      ) : (
+                        <i className="bi bi-file-earmark-pdf me-1" />
+                      )}
+                      Download Referral Form
+                    </button>
                   )}
-                  Download Referral Form
-                </button>
-              )}
-            </div>
+                </div>
 
-            {referring && (
-              <div className="row g-3 mb-4">
-                <div className="col-md-5">
-                  <label className="form-label">Referral office</label>
-                  <select className="form-select" value={officeId} onChange={(e) => setOfficeId(e.target.value ? Number(e.target.value) : '')}>
-                    <option value="">Select an office</option>
-                    {offices.map((o) => (
-                      <option key={o.office_id} value={o.office_id}>{o.office_name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-md-7">
-                  <label className="form-label">Reason for referral</label>
-                  <input className="form-control" value={referralReason} onChange={(e) => setReferralReason(e.target.value)} />
-                </div>
+                {referring && (
+                  <div className="row g-3 mt-2">
+                    <div className="col-md-5">
+                      <label className="form-label">Referral office</label>
+                      <select className="form-select" value={officeId} onChange={(e) => setOfficeId(e.target.value ? Number(e.target.value) : '')}>
+                        <option value="">Select an office</option>
+                        {offices.map((o) => (
+                          <option key={o.office_id} value={o.office_id}>{o.office_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-7">
+                      <label className="form-label">Reason for referral</label>
+                      <input className="form-control" value={referralReason} onChange={(e) => setReferralReason(e.target.value)} />
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             <div className="card">
               <div className="card-body p-3">
