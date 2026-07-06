@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { Fragment, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { clientService, lookupService } from '../services/api';
@@ -50,6 +51,7 @@ function validateStep(step: number, form: IntakeBody): FieldErrors {
 }
 
 export default function IntakePage() {
+  const [consentGiven, setConsentGiven] = useState(false);
   const [form, setForm] = useState<IntakeBody>(EMPTY_FORM);
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
@@ -135,6 +137,7 @@ export default function IntakePage() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
+      {!consentGiven && <PrivacyNoticeModal onAgree={() => setConsentGiven(true)} />}
       <div className="d-flex justify-content-between align-items-center p-4">
         <div className="d-flex align-items-center gap-2">
           <BrandMark size={30} />
@@ -235,6 +238,95 @@ export default function IntakePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Privacy Notice Modal
+// ---------------------------------------------------------------------------
+
+function PrivacyNoticeModal({ onAgree }: { onAgree: () => void }) {
+  const [englishOpen, setEnglishOpen] = useState(true);
+  const [filipinoOpen, setFilipinoOpen] = useState(true);
+
+  useEffect(() => {
+    function block(e: KeyboardEvent) {
+      if (e.key === 'Escape') e.preventDefault();
+    }
+    document.addEventListener('keydown', block, true);
+    return () => document.removeEventListener('keydown', block, true);
+  }, []);
+
+  return createPortal(
+    <>
+      <div className="pacu-privacy-backdrop" />
+      <div className="pacu-privacy-wrap">
+        <div className="pacu-privacy-modal">
+
+          <div className="pacu-privacy-header">
+            <h5 className="pacu-display mb-0">Privacy Notice / Paunawa sa Pribasidad</h5>
+          </div>
+
+          <div className="pacu-privacy-body">
+
+            <button
+              type="button"
+              className="pacu-privacy-toggle"
+              onClick={() => setEnglishOpen((o) => !o)}
+              aria-expanded={englishOpen}
+            >
+              <span className="fw-semibold">English</span>
+              <i className={`bi bi-chevron-${englishOpen ? 'up' : 'down'}`} />
+            </button>
+
+            {englishOpen && (
+              <div className="pacu-privacy-content">
+                <p className="pacu-eyebrow mb-3">PRIVACY NOTICE</p>
+                <p>By submitting this form, you acknowledge that the Department of Labor and Employment (DOLE) collects and processes your personal information, such as your name, age, and email address, for the purpose of responding to your legal query, in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173), its Implementing Rules and Regulations, and relevant issuances of the National Privacy Commission.</p>
+                <p>DOLE assures data subjects that all personal data collected through this platform shall be processed with due diligence and prudence and shall be used solely for the declared purpose.</p>
+                <p>Access to your personal information is limited to duly authorized DOLE personnel. Your personal data shall be stored in a secure database.</p>
+                <p>As a data subject, you have the right to be informed, to access, and to request the correction of your personal data processed by DOLE, subject to the limitations provided by law. You may exercise these rights by contacting DOLE during office hours, from Monday to Friday, 8:00 a.m. to 5:00 p.m., except holidays, through the following contact details:</p>
+                <p><strong>DOLE Data Protection Officer</strong><br />Mobile No.: (02) 8527 3000 (local 710/715)<br />Email: dpo@dole.gov.ph</p>
+                <p><strong>DOLE Legal Service</strong><br />Landline No.: (02) 8527 3000 (local 607)<br />Email: ls@dole.gov.ph</p>
+              </div>
+            )}
+
+            <hr className="pacu-privacy-divider" />
+
+            <button
+              type="button"
+              className="pacu-privacy-toggle"
+              onClick={() => setFilipinoOpen((o) => !o)}
+              aria-expanded={filipinoOpen}
+            >
+              <span className="fw-semibold">Filipino</span>
+              <i className={`bi bi-chevron-${filipinoOpen ? 'up' : 'down'}`} />
+            </button>
+
+            {filipinoOpen && (
+              <div className="pacu-privacy-content">
+                <p className="pacu-eyebrow mb-3">PAUNAWA SA PRIBASIDAD</p>
+                <p>Sa pamamagitan ng pagsumite ng pormang ito, kinikilala mo na ang Department of Labor and Employment (DOLE) ay nangongolekta at nagpoproseso ng iyong personal na impormasyon, gaya ng iyong pangalan, edad, at email address, para sa layuning tumugon sa iyong legal na katanungan, alinsunod sa Data Privacy Act of 2012 (Republic Act No. 10173), sa mga Implementing Rules and Regulations nito, at sa mga kaugnay na kautusan ng National Privacy Commission.</p>
+                <p>Tinitiyak ng DOLE sa mga data subject na ang lahat ng personal na datos na makokolekta sa pamamagitan ng platapormang ito ay ipoproseso nang may nararapat na pag-iingat at pagkamahinahon at gagamitin lamang para sa ipinahayag na layunin.</p>
+                <p>Ang pag-access sa iyong personal na impormasyon ay limitado lamang sa mga duly authorized personnel ng DOLE. Ang iyong personal na datos ay itatago sa isang ligtas na database.</p>
+                <p>Bilang isang data subject, ikaw ay may karapatang mabigyan ng impormasyon, magkaroon ng access, at humiling ng pagwawasto ng iyong personal na datos na pinoproseso ng DOLE, alinsunod sa mga limitasyong itinakda ng batas. Maaari mong gamitin ang mga karapatang ito sa pamamagitan ng pakikipag-ugnayan sa DOLE sa oras ng opisina, mula Lunes hanggang Biyernes, ika-8:00 ng umaga hanggang ika-5:00 ng hapon, maliban sa mga pista opisyal, sa pamamagitan ng mga sumusunod na detalye:</p>
+                <p><strong>DOLE Data Protection Officer</strong><br />Mobile No.: (02) 8527 3000 (local 710/715)<br />Email: dpo@dole.gov.ph</p>
+                <p><strong>DOLE Legal Service</strong><br />Landline No.: (02) 8527 3000 (local 607)<br />Email: ls@dole.gov.ph</p>
+              </div>
+            )}
+
+          </div>
+
+          <div className="pacu-privacy-footer">
+            <button type="button" className="btn btn-primary btn-sm" onClick={onAgree}>
+              I Agree (Sumasang-ayon Ako)
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </>,
+    document.body
   );
 }
 

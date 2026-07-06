@@ -202,3 +202,96 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Privacy Notice Modal
+ * --------------------------------------------------------------------------- */
+
+.pacu-privacy-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  z-index: 2000;
+}
+
+.pacu-privacy-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 2001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.pacu-privacy-modal {
+  width: 100%;
+  max-width: 760px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bs-body-bg);
+  border-radius: var(--pacu-radius);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+}
+
+.pacu-privacy-header {
+  padding: 1.5rem 1.75rem;
+  border-bottom: 1px solid var(--pacu-border);
+  flex-shrink: 0;
+}
+
+.pacu-privacy-body {
+  overflow-y: auto;
+  padding: 1.25rem 1.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.pacu-privacy-footer {
+  padding: 1.25rem 1.75rem;
+  border-top: 1px solid var(--pacu-border);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pacu-privacy-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.6rem 0;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.pacu-privacy-toggle:hover {
+  color: var(--pacu-accent);
+}
+
+.pacu-privacy-content {
+  padding: 0.5rem 0 0.75rem;
+  line-height: 1.8;
+  font-size: 0.9rem;
+  text-align: justify;
+}
+
+.pacu-privacy-content p {
+  margin-bottom: 0.9rem;
+}
+
+.pacu-privacy-content p:last-child {
+  margin-bottom: 0;
+}
+
+.pacu-privacy-divider {
+  border: none;
+  border-top: 1px solid var(--pacu-border);
+  margin: 0.5rem 0;
+  opacity: 1;
+}
