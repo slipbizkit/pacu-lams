@@ -56,11 +56,6 @@ export function TransactionViewModal({ transaction: tx, onClose }: TransactionVi
     tx.is_pregnant && 'Pregnant',
   ].filter(Boolean) as string[];
 
-  const civilStatusLabel: Record<string, string> = {
-    single: 'Single', married: 'Married', widowed: 'Widowed',
-    separated: 'Separated', divorced: 'Divorced',
-  };
-
   return (
     <>
       <div className="modal d-block" tabIndex={-1} role="dialog">
@@ -103,20 +98,49 @@ export function TransactionViewModal({ transaction: tx, onClose }: TransactionVi
               <div className="row g-3 mb-4">
                 <div className="col-12"><Field label="Full Name" value={fullName} /></div>
                 <div className="col-md-4"><Field label="Sex" value={tx.sex ? tx.sex.charAt(0).toUpperCase() + tx.sex.slice(1) : null} /></div>
-                <div className="col-md-4"><Field label="Date of Birth" value={fmtDate(tx.birth_date)} /></div>
-                <div className="col-md-4"><Field label="Civil Status" value={tx.civil_status ? civilStatusLabel[tx.civil_status] : null} /></div>
-                <div className="col-md-6"><Field label="Contact No." value={tx.contact_no} /></div>
-                <div className="col-md-6"><Field label="Email" value={tx.email} /></div>
-                <div className="col-md-6"><Field label="Address" value={tx.address} /></div>
-                <div className="col-md-3"><Field label="City" value={tx.city} /></div>
-                <div className="col-md-3"><Field label="Province" value={tx.province} /></div>
+                <div className="col-md-4"><Field label="Contact No." value={tx.contact_no} /></div>
+                <div className="col-md-4"><Field label="Email" value={tx.email} /></div>
+                <div className="col-md-6"><Field label="City / Municipality" value={tx.city} /></div>
               </div>
 
               {/* Employment */}
               <p className="pacu-eyebrow mb-3">Employment</p>
               <div className="row g-3 mb-4">
-                <div className="col-md-6"><Field label="Occupation" value={tx.occupation} /></div>
+                <div className="col-md-4"><Field label="Work Position" value={tx.occupation} /></div>
+                <div className="col-md-4"><Field label="Date of Employment" value={fmtDate(tx.date_of_employment)} /></div>
+                <div className="col-md-4"><Field label="Union Member" value={tx.union_member === null ? null : tx.union_member ? 'Yes' : 'No'} /></div>
+              </div>
+
+              {/* Company Details */}
+              <p className="pacu-eyebrow mb-3">Company Details</p>
+              <div className="row g-3 mb-4">
                 <div className="col-md-6"><Field label="Company / Employer" value={tx.employer} /></div>
+                <div className="col-md-6"><Field label="Company City / Municipality" value={tx.company_city} /></div>
+                <div className="col-12">
+                  <p className="pacu-eyebrow mb-1" style={{ fontSize: '0.65rem' }}>Pending Labor Complaint / Case</p>
+                  {tx.pending_complaint_types && tx.pending_complaint_types.length > 0 ? (
+                    <div className="d-flex flex-wrap gap-1 mt-1">
+                      {tx.pending_complaint_types.map((t) => (
+                        <span
+                          key={t}
+                          className="d-inline-flex align-items-center"
+                          style={{
+                            padding: '3px 10px',
+                            borderRadius: 'var(--pacu-radius-sm)',
+                            backgroundColor: 'var(--pacu-accent-soft)',
+                            color: 'var(--pacu-accent)',
+                            fontSize: '0.8rem',
+                            fontWeight: 500,
+                          }}
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mb-0" style={{ fontSize: '0.9rem' }}>—</p>
+                  )}
+                </div>
               </div>
 
               {/* Stated Concern */}

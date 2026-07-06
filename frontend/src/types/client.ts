@@ -78,6 +78,7 @@ export interface CompletedTransaction extends Client {
   issue_categories: string | null;
   city: string | null;
   province: string | null;
+  company_city: string | null;
 }
 
 export interface IssueTag {

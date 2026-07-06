@@ -90,6 +90,15 @@ export async function listAssignedToLawyer(lawyerId: number): Promise<Client[]> 
   return rows as Client[];
 }
 
+export async function hasInProgressClient(lawyerId: number): Promise<boolean> {
+  const rows = await sql`
+    SELECT 1 FROM clients
+    WHERE assigned_lawyer_id = ${lawyerId} AND status = 'in_progress'
+    LIMIT 1
+  `;
+  return rows.length > 0;
+}
+
 export async function findAssignedToLawyer(clientId: number, lawyerId: number): Promise<Client | null> {
   const rows = await sql`
     SELECT * FROM clients
@@ -202,10 +211,12 @@ export async function listCompletedByLawyer(
       c.*,
       cm.city_municipality AS city,
       cm.province AS province,
+      cm2.city_municipality AS company_city,
       MAX(ro.office_name) AS referred_office_name,
       STRING_AGG(ic.category_name, ', ' ORDER BY ic.category_name) AS issue_categories
     FROM clients c
     LEFT JOIN cities_municipalities cm ON cm.id = c.city_id
+    LEFT JOIN cities_municipalities cm2 ON cm2.id = c.company_city_id
     LEFT JOIN referred_offices ro ON ro.office_id = c.referred_office_id
     LEFT JOIN client_issues ci ON ci.client_id = c.client_id
     LEFT JOIN issue_categories ic ON ic.category_id = ci.category_id
@@ -220,7 +231,7 @@ export async function listCompletedByLawyer(
         OR (c.first_name || ' ' || c.last_name) ILIKE ${searchLike}::text
         OR c.employer ILIKE ${searchLike}::text
       )
-    GROUP BY c.client_id, cm.city_municipality, cm.province
+    GROUP BY c.client_id, cm.city_municipality, cm.province, cm2.city_municipality
     ORDER BY c.updated_at DESC
   `;
   return rows as CompletedTransaction[];
