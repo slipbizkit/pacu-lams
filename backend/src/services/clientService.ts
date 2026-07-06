@@ -54,7 +54,7 @@ export async function assignToLawyer(
   // requests can't race past this check the way a separate read-then-write could.
   const rows = await sql`
     UPDATE clients
-    SET assigned_lawyer_id = ${lawyerId}, status = 'assigned'
+    SET assigned_lawyer_id = ${lawyerId}, status = 'in_progress'
     WHERE client_id = ${clientId}
       AND status = 'waiting'
       AND (
@@ -84,7 +84,7 @@ export async function assignToLawyer(
 export async function listAssignedToLawyer(lawyerId: number): Promise<Client[]> {
   const rows = await sql`
     SELECT * FROM clients
-    WHERE assigned_lawyer_id = ${lawyerId} AND status IN ('assigned', 'in_progress')
+    WHERE assigned_lawyer_id = ${lawyerId} AND status IN ('assigned', 'in_progress', 'incomplete')
     ORDER BY (is_senior OR is_pwd OR is_pregnant) DESC, transaction_date ASC, queue_number ASC
   `;
   return rows as Client[];
@@ -118,7 +118,7 @@ export async function saveConsultation(
 ): Promise<{ client: Client } | { error: ConsultationFailureReason; message?: string }> {
   const current = await findAssignedToLawyer(clientId, lawyerId);
   if (!current) return { error: 'not_found' };
-  if (current.status !== 'assigned' && current.status !== 'in_progress') {
+  if (current.status !== 'assigned' && current.status !== 'in_progress' && current.status !== 'incomplete') {
     return { error: 'not_active' };
   }
 
@@ -146,7 +146,7 @@ export async function saveConsultation(
     `;
   }
 
-  const newStatus = body.mark_incomplete ? 'in_progress' : 'completed';
+  const newStatus = body.mark_incomplete ? 'incomplete' : 'completed';
   const rows = await sql`
     UPDATE clients
     SET legal_advice = ${body.legal_advice ?? null},

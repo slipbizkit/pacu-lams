@@ -383,6 +383,16 @@ input:focus-visible,
   color: var(--pacu-accent);
 }
 
+.pacu-badge--warning {
+  background-color: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+
+[data-bs-theme='dark'] .pacu-badge--warning {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
 .pacu-avatar {
   display: inline-flex;
   align-items: center;

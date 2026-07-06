@@ -45,6 +45,7 @@ export default function MyClientsPage() {
       const next = queue[0];
       const claimed = await clientService.claim(next.client_id);
       setClients((prev) => [claimed, ...prev]);
+      window.dispatchEvent(new Event('pacu:counts-changed'));
       Swal.fire({ icon: 'success', title: `Claimed ${claimed.first_name} ${claimed.last_name}`, toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
     } catch (err) {
       Swal.fire({ icon: 'error', title: 'Could not claim next client', text: err instanceof Error ? err.message : 'Please try again' });
@@ -55,6 +56,7 @@ export default function MyClientsPage() {
 
   function handleSaved(updated: Client) {
     setActiveClient(null);
+    window.dispatchEvent(new Event('pacu:counts-changed'));
     if (updated.status === 'completed') {
       setClients((prev) => prev.filter((c) => c.client_id !== updated.client_id));
     } else {
@@ -119,10 +121,10 @@ export default function MyClientsPage() {
                 <div className="card-body p-4">
                   <div className="d-flex justify-content-between align-items-start mb-2">
                     <span className="pacu-mono fw-semibold" style={{ fontSize: '0.85rem' }}>#{c.queue_number}</span>
-                    {c.status === 'in_progress' ? (
-                      <span className="pacu-badge">In Progress</span>
+                    {c.status === 'incomplete' ? (
+                      <span className="pacu-badge pacu-badge--warning">Incomplete</span>
                     ) : (
-                      <span className="pacu-badge">Assigned</span>
+                      <span className="pacu-badge">In Progress</span>
                     )}
                   </div>
                   <h6 className="fw-semibold mb-1">{c.first_name} {c.last_name}</h6>

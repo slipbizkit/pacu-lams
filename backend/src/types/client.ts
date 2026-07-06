@@ -1,4 +1,4 @@
-export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'completed';
+export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'incomplete' | 'completed';
 export type ClientSex = 'male' | 'female';
 export type CivilStatus = 'single' | 'married' | 'widowed' | 'separated' | 'divorced';
 export type PendingComplaintType = 'NLRC' | 'DOLE Regional/Field Office' | 'NCMB' | 'DMW' | 'OWWA' | 'Others';
