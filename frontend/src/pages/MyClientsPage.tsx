@@ -67,7 +67,7 @@ export default function MyClientsPage() {
   function handleSaved(updated: Client) {
     setActiveClient(null);
     window.dispatchEvent(new Event('pacu:counts-changed'));
-    if (updated.status === 'completed') {
+    if (updated.status === 'completed' || updated.status === 'cancelled') {
       setClients((prev) => prev.filter((c) => c.client_id !== updated.client_id));
     } else {
       setClients((prev) => prev.map((c) => (c.client_id === updated.client_id ? updated : c)));
@@ -125,7 +125,10 @@ export default function MyClientsPage() {
         </div>
       ) : (
         <div className="row g-3">
-          {clients.map((c) => (
+          {[...clients].sort((a, b) => {
+            const rank = (s: string) => s === 'in_progress' ? 0 : 1;
+            return rank(a.status) - rank(b.status);
+          }).map((c) => (
             <div key={c.client_id} className="col-md-6 col-lg-4">
               <div className="card h-100">
                 <div className="card-body p-4 d-flex flex-column">

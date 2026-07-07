@@ -1,3 +1,6 @@
+import { useAuth } from '../context/AuthContext';
+import SupportStaffDashboardPage from './SupportStaffDashboardPage';
+
 const ROADMAP = [
   { icon: 'bi-people', title: 'Queue & assistance form', body: 'Kiosk self-encode and personnel-assisted assistance form, with priority clients surfaced first.' },
   { icon: 'bi-chat-square-text', title: 'Consultation console', body: 'Tag issues, record legal advice, and log the action taken on each case.' },
@@ -5,6 +8,12 @@ const ROADMAP = [
 ];
 
 export default function DashboardPage() {
+  const { role } = useAuth();
+
+  if (role === 'support_staff') {
+    return <SupportStaffDashboardPage />;
+  }
+
   return (
     <div>
       <div className="row g-3">

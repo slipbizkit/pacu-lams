@@ -145,6 +145,69 @@ export async function saveConsultation(req: AuthRequest, res: Response) {
   res.json(result.client);
 }
 
+export async function removeFromQueue(req: AuthRequest, res: Response) {
+  const clientId = Number(req.params.id);
+  const { reason } = req.body as { reason?: string };
+
+  if (!Number.isInteger(clientId)) {
+    return res.status(400).json({ message: 'Invalid client id' });
+  }
+  if (!reason?.trim()) {
+    return res.status(400).json({ message: 'Removal reason is required' });
+  }
+
+  const result = await ClientService.removeFromQueue(clientId, reason.trim(), req.user!.id);
+
+  if ('error' in result) {
+    const status = result.error === 'not_found' ? 404 : 409;
+    return res.status(status).json({ message: result.error === 'not_found' ? 'Client not found' : 'Client is no longer waiting in the queue' });
+  }
+
+  res.json(result.client);
+}
+
+export async function getSupportStaffDashboard(_req: AuthRequest, res: Response) {
+  const data = await ClientService.getSupportStaffDashboard();
+  res.json(data);
+}
+
+export async function listAllHistory(req: AuthRequest, res: Response) {
+  const filters: HistoryFilters = {
+    search: typeof req.query.search === 'string' ? req.query.search : undefined,
+  };
+  const history = await ClientService.listAllCompleted(filters);
+  res.json(history);
+}
+
+export async function listCancelled(req: AuthRequest, res: Response) {
+  const filters: HistoryFilters = {
+    search: typeof req.query.search === 'string' ? req.query.search : undefined,
+  };
+  const clients = await ClientService.listCancelledByLawyer(req.user!.id, filters);
+  res.json(clients);
+}
+
+export async function cancelTransaction(req: AuthRequest, res: Response) {
+  const clientId = Number(req.params.id);
+  const { reason } = req.body as { reason?: string };
+
+  if (!Number.isInteger(clientId)) {
+    return res.status(400).json({ message: 'Invalid client id' });
+  }
+  if (!reason?.trim()) {
+    return res.status(400).json({ message: 'Cancellation reason is required' });
+  }
+
+  const result = await ClientService.cancelTransaction(clientId, req.user!.id, reason.trim());
+
+  if ('error' in result) {
+    const status = result.error === 'not_found' ? 404 : 409;
+    return res.status(status).json({ message: result.error === 'not_found' ? 'Client not found' : 'Transaction cannot be cancelled in its current state' });
+  }
+
+  res.json(result.client);
+}
+
 // Public — no auth. A client checks their own reference_no to see if feedback is open.
 export async function getFeedbackStatus(req: Request, res: Response) {
   const referenceNo = req.params.referenceNo;

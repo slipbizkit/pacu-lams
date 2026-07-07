@@ -19,9 +19,11 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', group: 'home' },
-  { to: '/queue', label: 'Queue', icon: 'bi-people', roles: ['personnel', 'lawyer', 'admin'], group: 'ongoing' },
+  { to: '/queue', label: 'Queue', icon: 'bi-people', roles: ['personnel', 'lawyer', 'admin', 'support_staff'], group: 'ongoing' },
   { to: '/clients', label: 'My Clients', icon: 'bi-person-lines-fill', roles: ['lawyer'], group: 'ongoing' },
   { to: '/history', label: 'Completed Transactions', icon: 'bi-clock-history', roles: ['lawyer'], group: 'history' },
+  { to: '/cancelled', label: 'Cancelled Transactions', icon: 'bi-x-circle', roles: ['lawyer'], group: 'history' },
+  { to: '/ss-history', label: 'Completed Transactions', icon: 'bi-clock-history', roles: ['support_staff'], group: 'history' },
   { to: '/admin/users', label: 'Users', icon: 'bi-person-badge', roles: ['admin'], group: 'admin' },
   { to: '/admin/categories', label: 'Issue Categories', icon: 'bi-tags', roles: ['admin'], group: 'admin' },
   { to: '/admin/offices', label: 'Referral Offices', icon: 'bi-building', roles: ['admin'], group: 'admin' },
@@ -48,7 +50,7 @@ export function Sidebar() {
   const [myClientsCount, setMyClientsCount] = useState<number | null>(null);
 
   const fetchCounts = useCallback(async () => {
-    const canSeeQueue = role && ['personnel', 'lawyer', 'admin'].includes(role);
+    const canSeeQueue = role && ['personnel', 'lawyer', 'admin', 'support_staff'].includes(role);
     const canSeeClients = role === 'lawyer';
     const [queueResult, clientsResult] = await Promise.allSettled([
       canSeeQueue ? clientService.listQueue() : Promise.resolve(null),
@@ -130,8 +132,14 @@ export function Sidebar() {
                   >
                     <i className={`bi ${item.icon}`} />
                     <span className="pacu-sidebar-label">{item.label}</span>
-                    {badgeCount !== null && badgeCount > 0 && (
-                      <span className="badge rounded-pill ms-auto pacu-sidebar-label" style={{ backgroundColor: 'var(--bs-danger)', fontSize: '0.7rem' }}>
+                    {badgeCount !== null && (
+                      <span
+                        className="badge rounded-pill ms-auto pacu-sidebar-label"
+                        style={{
+                          backgroundColor: badgeCount === 0 ? 'var(--bs-success)' : 'var(--bs-danger)',
+                          fontSize: '0.7rem',
+                        }}
+                      >
                         {badgeCount}
                       </span>
                     )}

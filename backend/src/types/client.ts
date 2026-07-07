@@ -1,4 +1,4 @@
-export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'incomplete' | 'completed';
+export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'incomplete' | 'completed' | 'cancelled';
 export type ClientSex = 'male' | 'female';
 export type CivilStatus = 'single' | 'married' | 'widowed' | 'separated' | 'divorced';
 export type PendingComplaintType = 'NLRC' | 'DOLE Regional/Field Office' | 'NCMB' | 'DMW' | 'OWWA' | 'Others';
@@ -46,6 +46,7 @@ export interface Client {
   feedback_comments: string | null;
 
   status: ClientStatus;
+  cancellation_reason: string | null;
   encoded_by: number | null;
 
   created_at: string;

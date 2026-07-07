@@ -21,6 +21,10 @@ router.post(
 );
 
 router.get('/history', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.listHistory));
+router.get('/cancelled', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.listCancelled));
+router.get('/ss-dashboard', requireAuth, requireRole('support_staff'), asyncHandler(ClientController.getSupportStaffDashboard));
+router.get('/all-history', requireAuth, requireRole('support_staff', 'admin'), asyncHandler(ClientController.listAllHistory));
+router.post('/:id/remove', requireAuth, requireRole('support_staff', 'personnel', 'admin'), asyncHandler(ClientController.removeFromQueue));
 router.get('/mine', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.listMine));
 router.get('/mine/:id', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.getMine));
 router.post('/:id/claim', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.claim));
@@ -29,6 +33,12 @@ router.patch(
   requireAuth,
   requireRole('lawyer'),
   asyncHandler(ClientController.saveConsultation)
+);
+router.post(
+  '/:id/cancel',
+  requireAuth,
+  requireRole('lawyer'),
+  asyncHandler(ClientController.cancelTransaction)
 );
 
 router.get(

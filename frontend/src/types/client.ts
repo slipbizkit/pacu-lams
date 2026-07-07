@@ -1,4 +1,4 @@
-export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'incomplete' | 'completed';
+export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'incomplete' | 'completed' | 'cancelled';
 export type ClientSex = 'male' | 'female';
 export type CivilStatus = 'single' | 'married' | 'widowed' | 'separated' | 'divorced';
 export type PendingComplaintType = 'NLRC' | 'DOLE Regional/Field Office' | 'NCMB' | 'DMW' | 'OWWA' | 'Others';
@@ -62,6 +62,7 @@ export interface Client {
   feedback_comments: string | null;
 
   status: ClientStatus;
+  cancellation_reason: string | null;
 
   created_at: string;
   updated_at: string;
@@ -79,6 +80,24 @@ export interface CompletedTransaction extends Client {
   city: string | null;
   province: string | null;
   company_city: string | null;
+  lawyer_name: string | null;
+}
+
+export interface ActivityItem {
+  client_id: number;
+  first_name: string;
+  last_name: string;
+  queue_number: number;
+  status: ClientStatus;
+  updated_at: string;
+  cancellation_reason: string | null;
+  lawyer_name: string | null;
+}
+
+export interface SupportStaffDashboard {
+  stats: { waiting: number; served_today: number; removed_today: number };
+  queue: Client[];
+  recent_activity: ActivityItem[];
 }
 
 export interface IssueTag {

@@ -17,6 +17,7 @@ import type {
   ReportFilters,
   ReportRow,
   SubmitFeedbackBody,
+  SupportStaffDashboard,
   UpdateIssueCategoryBody,
   UpdateReferredOfficeBody,
 } from '../types/client';
@@ -125,6 +126,11 @@ export const clientService = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  cancelTransaction: (clientId: number, reason: string) =>
+    apiFetch<Client>(`/clients/${clientId}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
   feedbackStatus: (referenceNo: string) =>
     apiFetch<FeedbackStatus>(`/clients/feedback/${encodeURIComponent(referenceNo)}`),
   submitFeedback: (referenceNo: string, body: SubmitFeedbackBody) =>
@@ -136,6 +142,17 @@ export const clientService = {
     apiDownload(`/clients/${clientId}/referral.pdf`, `referral-${referenceNo}.pdf`),
   listHistory: (filters?: HistoryFilters) =>
     apiFetch<CompletedTransaction[]>(`/clients/history${toQueryString(filters ?? {})}`),
+  listCancelled: (filters?: HistoryFilters) =>
+    apiFetch<Client[]>(`/clients/cancelled${toQueryString(filters ?? {})}`),
+  removeFromQueue: (clientId: number, reason: string) =>
+    apiFetch<Client>(`/clients/${clientId}/remove`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  getSupportStaffDashboard: () =>
+    apiFetch<SupportStaffDashboard>('/clients/ss-dashboard'),
+  listAllHistory: (filters?: HistoryFilters) =>
+    apiFetch<CompletedTransaction[]>(`/clients/all-history${toQueryString(filters ?? {})}`),
 };
 
 export const userService = {

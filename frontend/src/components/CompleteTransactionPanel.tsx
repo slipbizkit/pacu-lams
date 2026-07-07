@@ -12,6 +12,13 @@ interface CompleteTransactionPanelProps {
 
 const OTHERS_GROUP = 'Others';
 
+const CANCEL_REASONS = [
+  { value: 'Client Left the Office', description: 'Client left before being served.' },
+  { value: 'Client Requested Cancellation', description: 'Client no longer wishes to proceed.' },
+  { value: 'Duplicate Entry', description: 'Duplicate or accidental queue registration.' },
+  { value: 'Client Did Not Respond When Called', description: 'Client was called but did not respond after reasonable attempts.' },
+];
+
 // ---------------------------------------------------------------------------
 // IssueMultiSelect
 // ---------------------------------------------------------------------------
@@ -332,6 +339,72 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
     }
   }
 
+  async function handleCancelTransaction() {
+    const { value: reason, isConfirmed } = await Swal.fire({
+      icon: 'warning',
+      title: 'Cancel Transaction',
+      html: `
+        <p style="text-align:left;margin-bottom:0.75rem;font-size:0.9rem">Select a reason for cancelling this transaction.</p>
+        <select id="pacu-cancel-reason" class="form-select">
+          <option value="">Select a reason…</option>
+          ${CANCEL_REASONS.map((r) => `<option value="${r.value}">${r.value}</option>`).join('')}
+        </select>
+        <p id="pacu-cancel-desc" style="text-align:left;margin-top:0.6rem;font-size:0.82rem;color:var(--bs-secondary-color);min-height:1.2em"></p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Cancel Transaction',
+      confirmButtonColor: 'var(--bs-danger)',
+      cancelButtonText: 'Go Back',
+      didOpen: () => {
+        const select = document.getElementById('pacu-cancel-reason') as HTMLSelectElement;
+        const desc = document.getElementById('pacu-cancel-desc') as HTMLParagraphElement;
+        select.addEventListener('change', () => {
+          const found = CANCEL_REASONS.find((r) => r.value === select.value);
+          desc.textContent = found?.description ?? '';
+        });
+      },
+      preConfirm: () => {
+        const select = document.getElementById('pacu-cancel-reason') as HTMLSelectElement;
+        if (!select.value) {
+          Swal.showValidationMessage('Please select a reason for cancellation.');
+          return false;
+        }
+        return select.value;
+      },
+    });
+
+    if (!isConfirmed || !reason) return;
+
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Are you sure?',
+      html: `This will cancel the transaction with reason: <strong>${reason}</strong>.<br><br>This action cannot be undone.`,
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Cancel Transaction',
+      confirmButtonColor: 'var(--bs-danger)',
+      cancelButtonText: 'Go Back',
+    });
+    if (!confirm.isConfirmed) return;
+
+    setSaving(true);
+    try {
+      const updated = await clientService.cancelTransaction(client.client_id, reason as string);
+      Swal.fire({
+        icon: 'success',
+        title: 'Transaction cancelled',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+      });
+      onSaved(updated);
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Could not cancel transaction', text: err instanceof Error ? err.message : 'Please try again' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
 
@@ -519,6 +592,9 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
             </div>
 
             <div className="pacu-panel-footer">
+              <button type="button" className="btn btn-outline-danger me-auto" onClick={handleCancelTransaction} disabled={saving}>
+                Cancel Transaction
+              </button>
               <button type="button" className="btn btn-outline-secondary" onClick={onCancel}>
                 Cancel
               </button>

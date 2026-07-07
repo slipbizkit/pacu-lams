@@ -140,6 +140,7 @@ export default function IntakePage() {
   }
 
   function startNewEntry() {
+    setConsentGiven(false);
     setForm(EMPTY_FORM);
     setErrors({});
     setStep(0);
