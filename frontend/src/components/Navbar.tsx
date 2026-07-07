@@ -44,7 +44,7 @@ export function Navbar() {
 
         <span className="pacu-display text-truncate" style={{ fontSize: '1.05rem' }}>
           {greetingFor(now)}
-          {user ? `, ${user.first_name}` : ''}
+          {user ? <>, <span className="text-info">Atty. {user.first_name}</span></> : ''}
         </span>
       </div>
 

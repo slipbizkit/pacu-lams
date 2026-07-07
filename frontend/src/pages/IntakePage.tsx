@@ -15,7 +15,7 @@ const EMPTY_FORM: IntakeBody = {
   last_name: '',
   suffix: '',
   sex: undefined,
-  contact_no: '',
+  contact_no: '09',
   email: '',
   city_id: undefined,
   occupation: '',
@@ -35,6 +35,12 @@ const TOTAL_STEPS = STEP_TITLES.length;
 type FieldErrors = Partial<Record<keyof IntakeBody, string>>;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function formatContactNo(digits: string): string {
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 7) return digits.slice(0, 4) + '-' + digits.slice(4);
+  return digits.slice(0, 4) + '-' + digits.slice(4, 7) + '-' + digits.slice(7);
+}
 
 function validateStep(step: number, form: IntakeBody): FieldErrors {
   const errors: FieldErrors = {};
@@ -78,6 +84,12 @@ export default function IntakePage() {
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   }
 
+  function handleContactChange(value: string) {
+    const digits = value.replace(/\D/g, '');
+    const enforced = digits.startsWith('09') ? digits.slice(0, 11) : '09';
+    update('contact_no', formatContactNo(enforced));
+  }
+
   function goNext() {
     const stepErrors = validateStep(step, form);
     if (Object.keys(stepErrors).length > 0) {
@@ -113,7 +125,12 @@ export default function IntakePage() {
 
     setSubmitting(true);
     try {
-      const data = await clientService.intake(form);
+      const rawContact = form.contact_no?.replace(/-/g, '') ?? '';
+      const body: IntakeBody = {
+        ...form,
+        contact_no: rawContact.length > 2 ? rawContact : undefined,
+      };
+      const data = await clientService.intake(body);
       setResult(data);
     } catch (err) {
       Swal.fire({
@@ -402,7 +419,13 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
         </div>
         <div className="col-sm-6 col-lg-3">
           <label className="form-label">Contact number</label>
-          <input className="form-control" value={form.contact_no} onChange={(e) => update('contact_no', e.target.value)} />
+          <input
+            className="form-control"
+            inputMode="numeric"
+            placeholder="09XX-XXX-XXXX"
+            value={form.contact_no}
+            onChange={(e) => handleContactChange(e.target.value)}
+          />
         </div>
         <div className="col-sm-6 col-lg-3">
           <label className="form-label">Email</label>
@@ -561,7 +584,7 @@ function ReviewStep({ form, cities }: { form: IntakeBody; cities: CityMunicipali
           <div className="card-body p-3">
             <div className="pacu-wizard-review-row"><span className="text-muted">Name</span><span className="fw-medium">{fullName || '—'}</span></div>
             <div className="pacu-wizard-review-row"><span className="text-muted">Sex</span><span className="fw-medium text-capitalize">{form.sex ?? '—'}</span></div>
-            <div className="pacu-wizard-review-row"><span className="text-muted">Contact number</span><span className="fw-medium">{form.contact_no || '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">Contact number</span><span className="fw-medium">{form.contact_no && form.contact_no !== '09' ? form.contact_no : '—'}</span></div>
             <div className="pacu-wizard-review-row"><span className="text-muted">Email</span><span className="fw-medium">{form.email || '—'}</span></div>
             <div className="pacu-wizard-review-row"><span className="text-muted">Address</span><span className="fw-medium">{cityName || '—'}</span></div>
             <div className="pacu-wizard-review-row"><span className="text-muted">Work Position</span><span className="fw-medium">{form.occupation || '—'}</span></div>

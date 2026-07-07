@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
 import { clientService } from '../services/api';
 import { TransactionViewModal } from '../components/TransactionViewModal';
-import type { CompletedTransaction } from '../types/client';
+import type { CompletedTransaction, IssueTag } from '../types/client';
 
 function fmtDate(d: string): string {
   return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -99,6 +99,42 @@ function ActionsDropdown({ isOpen, onToggle, onClose, onView }: ActionsDropdownP
         )}
     </div>
   );
+}
+
+async function showIssuesSwal(row: CompletedTransaction) {
+  let issues: IssueTag[];
+  try {
+    const detail = await clientService.getMine(row.client_id);
+    issues = detail.issues as IssueTag[];
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Could not load issues', text: err instanceof Error ? err.message : 'Please try again' });
+    return;
+  }
+
+  if (issues.length === 0) {
+    Swal.fire({ icon: 'info', title: 'Issues', text: 'No issues recorded for this transaction.' });
+    return;
+  }
+
+  const grouped = new Map<string, string[]>();
+  for (const i of issues) {
+    if (!grouped.has(i.category_group)) grouped.set(i.category_group, []);
+    grouped.get(i.category_group)!.push(i.category_name);
+  }
+
+  const sections = Array.from(grouped.entries()).map(([group, names]) => `
+    <div style="margin-bottom:0.75rem">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--pacu-accent);padding:0.35rem 0 0.25rem;border-bottom:2px solid var(--pacu-accent)">${group}</div>
+      ${names.map((name) => `<div style="font-size:0.9rem;padding:0.3rem 0 0.3rem 0.5rem;border-bottom:1px solid var(--pacu-border)">${name}</div>`).join('')}
+    </div>
+  `).join('');
+
+  await Swal.fire({
+    title: 'Issues',
+    html: `<div style="text-align:left">${sections}</div>`,
+    confirmButtonText: 'Close',
+    confirmButtonColor: 'var(--pacu-accent)',
+  });
 }
 
 export default function TransactionHistoryPage() {
@@ -221,14 +257,14 @@ export default function TransactionHistoryPage() {
       ) : (
         <div className="card">
           <div className="table-responsive">
-            <table className="table mb-0 align-middle">
+            <table className="table mb-0 align-middle" style={{ fontSize: '0.85rem' }}>
               <thead>
                 <tr>
                   <th className="ps-4">Completion Date</th>
                   <th>Queue No.</th>
                   <th>Client Name</th>
                   <th>Company</th>
-                  <th>Transaction Type</th>
+                  <th>Issues</th>
                   <th className="text-end pe-4">Actions</th>
                 </tr>
               </thead>
@@ -252,9 +288,14 @@ export default function TransactionHistoryPage() {
                     </td>
                     <td style={{ maxWidth: 240 }}>
                       {row.issue_categories ? (
-                        <span className="text-truncate d-block" style={{ fontSize: '0.875rem' }}>{row.issue_categories}</span>
-                      ) : row.referred_office_name ? (
-                        <span className="text-muted" style={{ fontSize: '0.875rem' }}>Referral</span>
+                        <button
+                          type="button"
+                          className="btn btn-link p-0 text-start text-truncate d-block"
+                          style={{ fontSize: '0.8rem', maxWidth: '100%', textDecoration: 'underline dotted' }}
+                          onClick={() => showIssuesSwal(row)}
+                        >
+                          {row.issue_categories}
+                        </button>
                       ) : (
                         <span style={{ opacity: 0.4 }}>—</span>
                       )}
@@ -274,7 +315,7 @@ export default function TransactionHistoryPage() {
           </div>
           <div
             className="card-footer d-flex flex-wrap align-items-center justify-content-between gap-3 py-2 px-4"
-            style={{ fontSize: '0.8rem' }}
+            style={{ fontSize: '0.85rem' }}
           >
             <span className="text-muted">
               Showing {startIdx + 1}–{Math.min(startIdx + pageSize, rows.length)} of {rows.length} transaction
