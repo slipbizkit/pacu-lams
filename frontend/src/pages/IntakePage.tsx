@@ -84,12 +84,6 @@ export default function IntakePage() {
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   }
 
-  function handleContactChange(value: string) {
-    const digits = value.replace(/\D/g, '');
-    const enforced = digits.startsWith('09') ? digits.slice(0, 11) : '09';
-    update('contact_no', formatContactNo(enforced));
-  }
-
   function goNext() {
     const stepErrors = validateStep(step, form);
     if (Object.keys(stepErrors).length > 0) {
@@ -371,6 +365,12 @@ function toCityOptions(cities: CityMunicipality[]) {
 }
 
 function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: FieldErrors; cities: CityMunicipality[] }) {
+  function handleContactChange(value: string) {
+    const digits = value.replace(/\D/g, '');
+    const enforced = digits.startsWith('09') ? digits.slice(0, 11) : '09';
+    update('contact_no', formatContactNo(enforced));
+  }
+
   return (
     <>
       <p className="pacu-eyebrow mb-3">Name of Client / Pangalan ng Kliyente</p>

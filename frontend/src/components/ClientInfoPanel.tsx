@@ -10,6 +10,7 @@ const STATUS_LABELS: Record<ClientStatus, string> = {
   waiting: 'Waiting',
   assigned: 'Assigned',
   in_progress: 'In Progress',
+  incomplete: 'Incomplete',
   completed: 'Completed',
 };
 
