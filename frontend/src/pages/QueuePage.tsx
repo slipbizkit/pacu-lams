@@ -227,7 +227,7 @@ export default function QueuePage() {
                   const blocked = hasPriorityWaiting && !priority;
                   const stale = !isToday(c.created_at);
                   return (
-                    <tr key={c.client_id} style={(stale ? { '--bs-table-color': 'var(--bs-danger)' } : priority ? { '--bs-table-color': 'var(--bs-success)' } : undefined) as React.CSSProperties}>
+                    <tr key={c.client_id} style={(stale ? { '--bs-table-color': 'var(--bs-danger)' } : priority ? { '--bs-table-color': 'var(--bs-success)' } : undefined) as unknown as React.CSSProperties}>
                       <td className="ps-4">
                         <span className="pacu-mono fw-semibold">{c.queue_number}</span>
                       </td>

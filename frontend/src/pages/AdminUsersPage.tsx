@@ -3,7 +3,7 @@ import Swal from 'sweetalert2';
 import { userService } from '../services/api';
 import type { User, UserRole } from '../types/user';
 
-const ROLE_LABELS: Record<UserRole, string> = { admin: 'Admin', lawyer: 'Lawyer', personnel: 'Personnel' };
+const ROLE_LABELS: Record<UserRole, string> = { admin: 'Admin', lawyer: 'Lawyer', personnel: 'Personnel', support_staff: 'Support Staff' };
 
 const EMPTY_FORM = { username: '', first_name: '', middle_name: '', last_name: '', position: '', role: 'personnel' as UserRole };
 

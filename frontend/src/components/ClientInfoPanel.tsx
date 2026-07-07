@@ -12,6 +12,7 @@ const STATUS_LABELS: Record<ClientStatus, string> = {
   in_progress: 'In Progress',
   incomplete: 'Incomplete',
   completed: 'Completed',
+  cancelled: 'Cancelled',
 };
 
 function fmtDate(d: string | null | undefined): string {
