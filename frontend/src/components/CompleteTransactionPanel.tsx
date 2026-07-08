@@ -12,13 +12,6 @@ interface CompleteTransactionPanelProps {
 
 const OTHERS_GROUP = 'Others';
 
-const CANCEL_REASONS = [
-  { value: 'Client Left the Office', description: 'Client left before being served.' },
-  { value: 'Client Requested Cancellation', description: 'Client no longer wishes to proceed.' },
-  { value: 'Duplicate Entry', description: 'Duplicate or accidental queue registration.' },
-  { value: 'Client Did Not Respond When Called', description: 'Client was called but did not respond after reasonable attempts.' },
-];
-
 // ---------------------------------------------------------------------------
 // IssueMultiSelect
 // ---------------------------------------------------------------------------
@@ -152,7 +145,7 @@ function IssueMultiSelect({ categories, selectedIds, onChange }: IssueMultiSelec
           No matching issues
         </div>
       ) : (
-        [...filteredGrouped.entries()].map(([group, cats], groupIdx) => (
+        [...filteredGrouped.entries()].sort(([a], [b]) => a === OTHERS_GROUP ? 1 : b === OTHERS_GROUP ? -1 : 0).map(([group, cats], groupIdx) => (
           <div key={group}>
             <div
               className="px-3 pb-1"
@@ -339,72 +332,6 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
     }
   }
 
-  async function handleCancelTransaction() {
-    const { value: reason, isConfirmed } = await Swal.fire({
-      icon: 'warning',
-      title: 'Cancel Transaction',
-      html: `
-        <p style="text-align:left;margin-bottom:0.75rem;font-size:0.9rem">Select a reason for cancelling this transaction.</p>
-        <select id="pacu-cancel-reason" class="form-select">
-          <option value="">Select a reason…</option>
-          ${CANCEL_REASONS.map((r) => `<option value="${r.value}">${r.value}</option>`).join('')}
-        </select>
-        <p id="pacu-cancel-desc" style="text-align:left;margin-top:0.6rem;font-size:0.82rem;color:var(--bs-secondary-color);min-height:1.2em"></p>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Cancel Transaction',
-      confirmButtonColor: 'var(--bs-danger)',
-      cancelButtonText: 'Go Back',
-      didOpen: () => {
-        const select = document.getElementById('pacu-cancel-reason') as HTMLSelectElement;
-        const desc = document.getElementById('pacu-cancel-desc') as HTMLParagraphElement;
-        select.addEventListener('change', () => {
-          const found = CANCEL_REASONS.find((r) => r.value === select.value);
-          desc.textContent = found?.description ?? '';
-        });
-      },
-      preConfirm: () => {
-        const select = document.getElementById('pacu-cancel-reason') as HTMLSelectElement;
-        if (!select.value) {
-          Swal.showValidationMessage('Please select a reason for cancellation.');
-          return false;
-        }
-        return select.value;
-      },
-    });
-
-    if (!isConfirmed || !reason) return;
-
-    const confirm = await Swal.fire({
-      icon: 'warning',
-      title: 'Are you sure?',
-      html: `This will cancel the transaction with reason: <strong>${reason}</strong>.<br><br>This action cannot be undone.`,
-      showCancelButton: true,
-      confirmButtonText: 'Yes, Cancel Transaction',
-      confirmButtonColor: 'var(--bs-danger)',
-      cancelButtonText: 'Go Back',
-    });
-    if (!confirm.isConfirmed) return;
-
-    setSaving(true);
-    try {
-      const updated = await clientService.cancelTransaction(client.client_id, reason as string);
-      Swal.fire({
-        icon: 'success',
-        title: 'Transaction cancelled',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-      });
-      onSaved(updated);
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Could not cancel transaction', text: err instanceof Error ? err.message : 'Please try again' });
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
 
@@ -469,11 +396,11 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
   }
 
   return (
-    <div className="card pacu-transaction-panel">
-      <div className="card-body p-4 p-md-5">
+    <div className="card pacu-transaction-panel h-100">
+      <div className="card-body p-4 p-md-5 d-flex flex-column">
         <div className="mb-4">
           <h5 className="pacu-display mb-1">Complete Transaction</h5>
-          <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>
+          <p className="mb-0" style={{ fontSize: '0.85rem' }}>
             {client.first_name} {client.last_name} &middot; Queue #{client.queue_number}
           </p>
         </div>
@@ -483,7 +410,7 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
             <div className="spinner-border text-primary" />
           </div>
         ) : (
-          <form onSubmit={handleSave}>
+          <form onSubmit={handleSave} className="d-flex flex-column flex-grow-1">
             {client.concern && (
               <div className="mb-4 p-3" style={{ backgroundColor: 'var(--pacu-bg)', borderRadius: 'var(--pacu-radius)' }}>
                 <p className="pacu-eyebrow mb-1">Client's stated concern</p>
@@ -512,7 +439,7 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
               <textarea
                 className="form-control"
                 rows={5}
-                placeholder="Record the legal advice given to the client..."
+
                 value={legalAdvice}
                 onChange={(e) => setLegalAdvice(e.target.value)}
               />
@@ -591,12 +518,9 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
               </div>
             </div>
 
-            <div className="pacu-panel-footer">
-              <button type="button" className="btn btn-outline-danger me-auto" onClick={handleCancelTransaction} disabled={saving}>
-                Cancel Transaction
-              </button>
+            <div className="pacu-panel-footer mt-auto">
               <button type="button" className="btn btn-outline-secondary" onClick={onCancel}>
-                Cancel
+                Close
               </button>
               <button type="submit" className="btn btn-primary" disabled={saving}>
                 {saving ? <span className="spinner-border spinner-border-sm me-2" /> : null}

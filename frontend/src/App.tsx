@@ -12,6 +12,7 @@ import MyClientsPage from './pages/MyClientsPage';
 import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import CancelledTransactionsPage from './pages/CancelledTransactionsPage';
 import SupportStaffHistoryPage from './pages/SupportStaffHistoryPage';
+import MyAccountPage from './pages/MyAccountPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminCategoriesPage from './pages/AdminCategoriesPage';
 import AdminOfficesPage from './pages/AdminOfficesPage';
@@ -49,6 +50,12 @@ export default function App() {
               <Route path="/clients" element={<MyClientsPage />} />
               <Route path="/history" element={<TransactionHistoryPage />} />
               <Route path="/cancelled" element={<CancelledTransactionsPage />} />
+            </Route>
+          </Route>
+
+          <Route element={<PrivateRoute allowedRoles={['personnel', 'lawyer', 'support_staff']} />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="/account" element={<MyAccountPage />} />
             </Route>
           </Route>
 

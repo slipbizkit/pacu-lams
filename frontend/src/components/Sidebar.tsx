@@ -5,9 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { useSidebar } from '../context/SidebarContext';
 import { clientService } from '../services/api';
 import type { UserRole } from '../types/user';
-import { BrandMark } from './BrandMark';
 
-type NavGroup = 'home' | 'ongoing' | 'history' | 'admin';
+type NavGroup = 'home' | 'ongoing' | 'history' | 'admin' | 'settings';
 
 interface NavItem {
   to: string;
@@ -24,18 +23,20 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/history', label: 'Completed Transactions', icon: 'bi-clock-history', roles: ['lawyer'], group: 'history' },
   { to: '/cancelled', label: 'Cancelled Transactions', icon: 'bi-x-circle', roles: ['lawyer'], group: 'history' },
   { to: '/ss-history', label: 'Completed Transactions', icon: 'bi-clock-history', roles: ['support_staff'], group: 'history' },
+  { to: '/account', label: 'My Account', icon: 'bi-person-gear', roles: ['personnel', 'lawyer', 'support_staff'], group: 'settings' },
   { to: '/admin/users', label: 'Users', icon: 'bi-person-badge', roles: ['admin'], group: 'admin' },
   { to: '/admin/categories', label: 'Issue Categories', icon: 'bi-tags', roles: ['admin'], group: 'admin' },
   { to: '/admin/offices', label: 'Referral Offices', icon: 'bi-building', roles: ['admin'], group: 'admin' },
   { to: '/admin/reports', label: 'Reports', icon: 'bi-bar-chart-line', roles: ['admin'], group: 'admin' },
 ];
 
-const GROUP_ORDER: NavGroup[] = ['home', 'ongoing', 'history', 'admin'];
+const GROUP_ORDER: NavGroup[] = ['home', 'ongoing', 'history', 'admin', 'settings'];
 const GROUP_LABELS: Record<NavGroup, string> = {
   home: 'Home',
   ongoing: 'Ongoing',
   history: 'History',
   admin: 'Administration',
+  settings: 'Settings',
 };
 
 const MOBILE_QUERY = '(max-width: 991.98px)';
@@ -102,12 +103,11 @@ export function Sidebar() {
     <>
       <aside className={`pacu-sidebar d-flex flex-column py-4${collapsed ? ' is-collapsed' : ''}`}>
         <div className="pacu-sidebar-brand-row d-flex align-items-center gap-2 px-4 mb-3">
-          <BrandMark size={32} />
-          <div className="lh-1 pacu-sidebar-label">
-            <div className="pacu-display fs-5">PACU</div>
-            <div className="pacu-eyebrow" style={{ letterSpacing: '0.1em', fontSize: '0.62rem' }}>
-              Legal Assistance
-            </div>
+          <img src="/dole-logo.png" alt="DOLE" style={{ width: 32, height: 32, objectFit: 'contain', flexShrink: 0 }} />
+          <div className="pacu-sidebar-label" style={{ lineHeight: 1.4 }}>
+            <div className="pacu-eyebrow text-primary" style={{ letterSpacing: '0.08em', fontSize: '0.6rem' }}>PACU</div>
+            <div className="pacu-eyebrow text-primary" style={{ letterSpacing: '0.08em', fontSize: '0.6rem' }}>Legal Assistance</div>
+            <div className="pacu-eyebrow text-primary" style={{ letterSpacing: '0.08em', fontSize: '0.6rem' }}>Monitoring System</div>
           </div>
         </div>
 

@@ -188,7 +188,7 @@ export default function QueuePage() {
     <div>
       <div className="d-flex align-items-center justify-content-between mb-1">
         <h1 className="pacu-display mb-0">Queue</h1>
-        <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+        <span style={{ fontSize: '0.85rem' }}>
           Automatically refreshes in: <span className="pacu-mono fw-semibold">{countdown}s</span>
         </span>
       </div>
@@ -210,15 +210,15 @@ export default function QueuePage() {
       ) : (
         <div className="card">
           <div className="table-responsive">
-            <table className="table mb-0 align-middle">
+            <table className="table mb-0 align-middle" style={{ fontSize: '0.9rem' }}>
               <thead>
                 <tr>
-                  <th className="ps-4">Queue #</th>
-                  <th>Date Encoded</th>
+                  <th className="ps-4" style={{ width: '1%', whiteSpace: 'nowrap' }}>Queue #</th>
                   <th>Client's Name</th>
                   <th>Company</th>
-                  <th>Priority</th>
-                  {(canAssign || canRemove) && <th className="text-end pe-4">Actions</th>}
+                  <th style={{ width: '1%', whiteSpace: 'nowrap' }}>Client Type</th>
+                  <th style={{ width: '1%', whiteSpace: 'nowrap' }}>Date Encoded</th>
+                  {(canAssign || canRemove) && <th className="text-end pe-4" style={{ width: '1%', whiteSpace: 'nowrap' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -231,14 +231,6 @@ export default function QueuePage() {
                       <td className="ps-4">
                         <span className="pacu-mono fw-semibold">{c.queue_number}</span>
                       </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {formatDateEncoded(c.created_at)}
-                        {stale && (
-                          <span className="badge bg-danger ms-2" style={{ fontSize: '0.7rem', fontWeight: 500 }}>
-                            Recommended to Cancel
-                          </span>
-                        )}
-                      </td>
                       <td>
                         {c.first_name} {c.last_name}
                       </td>
@@ -247,9 +239,17 @@ export default function QueuePage() {
                       </td>
                       <td>
                         {priority ? (
-                          <span className="text-success fw-semibold">Yes</span>
+                          <span className={stale ? 'fw-semibold' : 'text-success fw-semibold'}>Priority</span>
                         ) : (
-                          <span>No</span>
+                          <span className={stale ? '' : 'text-muted'}>Regular</span>
+                        )}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {formatDateEncoded(c.created_at)}
+                        {stale && (
+                          <span className="badge bg-danger ms-2" style={{ fontSize: '0.7rem', fontWeight: 500 }}>
+                            Recommended for Cancellation
+                          </span>
                         )}
                       </td>
                       {(canAssign || canRemove) && (
@@ -268,6 +268,7 @@ export default function QueuePage() {
                             {canRemove && (
                               <button
                                 className="btn btn-sm btn-outline-danger"
+                                style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
                                 disabled={removingId === c.client_id || assigningId === c.client_id}
                                 onClick={() => handleRemove(c)}
                               >

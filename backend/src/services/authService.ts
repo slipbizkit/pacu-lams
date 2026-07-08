@@ -24,3 +24,7 @@ export async function enableTotp(userId: number): Promise<void> {
 export async function disableTotp(userId: number): Promise<void> {
   await sql`UPDATE users SET totp_enabled = FALSE, totp_secret = NULL WHERE user_id = ${userId}`;
 }
+
+export async function changePassword(userId: number, newPasswordHash: string): Promise<void> {
+  await sql`UPDATE users SET password_hash = ${newPasswordHash} WHERE user_id = ${userId}`;
+}

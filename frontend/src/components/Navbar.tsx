@@ -21,7 +21,7 @@ function greetingFor(date: Date) {
 }
 
 export function Navbar() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { collapsed, toggle } = useSidebar();
   const now = useClock();
 
@@ -44,7 +44,7 @@ export function Navbar() {
 
         <span className="pacu-display text-truncate" style={{ fontSize: '1.05rem' }}>
           {greetingFor(now)}
-          {user ? <>, <span className="text-info">Atty. {user.first_name}</span></> : ''}
+          {user ? <>, <span>{role === 'lawyer' ? `Atty. ${user.first_name}` : user.first_name}</span></> : ''}
         </span>
       </div>
 

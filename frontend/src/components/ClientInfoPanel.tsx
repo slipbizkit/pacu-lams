@@ -37,7 +37,7 @@ function cityLabel(cities: CityMunicipality[], cityId: number | null): string {
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="pacu-detail-row">
-      <span className="text-muted">{label}</span>
+      <span>{label}</span>
       <span className="fw-medium text-end">{value}</span>
     </div>
   );
@@ -71,7 +71,7 @@ export function ClientInfoPanel({ client, cities, lawyerName }: ClientInfoPanelP
           <DetailRow label="Company Name" value={client.employer || '—'} />
           <DetailRow label="Company Address" value={cityLabel(cities, client.company_city_id)} />
           <div className="pacu-detail-row pacu-detail-row-stacked">
-            <span className="text-muted">Pending Labor Complaint/Case</span>
+            <span>Pending Labor Complaint/Case</span>
             {client.pending_complaint_types && client.pending_complaint_types.length > 0 ? (
               <div className="d-flex flex-wrap gap-1 mt-1">
                 {client.pending_complaint_types.map((t) => (

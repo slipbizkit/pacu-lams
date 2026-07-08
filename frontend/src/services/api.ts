@@ -102,6 +102,11 @@ export const authService = {
     }),
   me: () => apiFetch<User>('/auth/me'),
   refresh: () => apiFetch<{ token: string }>('/auth/refresh', { method: 'POST' }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiFetch<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }),
 };
 
 export const clientService = {

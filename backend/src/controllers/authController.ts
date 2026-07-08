@@ -168,6 +168,27 @@ export async function me(req: AuthRequest, res: Response) {
 // in-progress task isn't interrupted by the access token's fixed expiry.
 // Requires a still-valid access token — an already-expired token means the
 // user must log in again rather than being silently re-issued one.
+export async function changePassword(req: AuthRequest, res: Response) {
+  const { current_password, new_password } = req.body;
+  if (!current_password || !new_password) {
+    return res.status(400).json({ message: 'current_password and new_password are required' });
+  }
+  if (new_password.length < 12) {
+    return res.status(400).json({ message: 'New password must be at least 12 characters' });
+  }
+
+  const user = await AuthService.findById(req.user!.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  const valid = await bcrypt.compare(current_password, user.password_hash);
+  if (!valid) return res.status(401).json({ message: 'Current password is incorrect' });
+
+  const hash = await bcrypt.hash(new_password, 12);
+  await AuthService.changePassword(user.user_id, hash);
+
+  res.json({ message: 'Password changed successfully' });
+}
+
 export async function refresh(req: AuthRequest, res: Response) {
   const user = await AuthService.findById(req.user!.id);
   if (!user) return res.status(404).json({ message: 'User not found' });
