@@ -12,7 +12,7 @@ export async function createIntake(body: IntakeBody): Promise<Client> {
       first_name, middle_name, last_name, suffix, sex,
       contact_no, email, city_id, occupation, employer,
       date_of_employment, union_member, company_city_id, pending_complaint_types,
-      is_pwd, is_senior, is_pregnant
+      is_pwd, is_senior, is_pregnant, is_anonymous
     ) VALUES (
       ${referenceNo}, ${queueNumber}, ${transactionDate},
       ${body.first_name}, ${body.middle_name ?? null}, ${body.last_name}, ${body.suffix ?? null},
@@ -21,7 +21,7 @@ export async function createIntake(body: IntakeBody): Promise<Client> {
       ${body.occupation ?? null}, ${body.employer ?? null},
       ${body.date_of_employment || null}, ${body.union_member ?? null}, ${body.company_city_id ?? null},
       ${body.pending_complaint_types ?? null},
-      ${body.is_pwd ?? false}, ${body.is_senior ?? false}, ${body.is_pregnant ?? false}
+      ${body.is_pwd ?? false}, ${body.is_senior ?? false}, ${body.is_pregnant ?? false}, ${body.is_anonymous ?? false}
     )
     RETURNING *
   `;
@@ -233,6 +233,112 @@ export async function getSupportStaffDashboard(): Promise<{
     queue: queueRows as Client[],
     recent_activity: activityRows as ActivityItem[],
   };
+}
+
+export interface DashboardData {
+  queue: {
+    waiting: number;
+    priority_waiting: number;
+    in_progress: number;
+    incomplete: number;
+    completed_today: number;
+    cancelled_today: number;
+  };
+  my?: {
+    in_progress: number;
+    incomplete: number;
+    completed_today: number;
+    completed_this_month: number;
+  };
+}
+
+export async function getDashboard(userId: number, role: string): Promise<DashboardData> {
+  const [queueStats] = await sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM clients WHERE status = 'waiting') AS waiting,
+      (SELECT COUNT(*)::int FROM clients WHERE status = 'waiting' AND (is_senior OR is_pwd OR is_pregnant)) AS priority_waiting,
+      (SELECT COUNT(*)::int FROM clients WHERE status IN ('assigned', 'in_progress')) AS in_progress,
+      (SELECT COUNT(*)::int FROM clients WHERE status = 'incomplete') AS incomplete,
+      (SELECT COUNT(*)::int FROM clients WHERE status = 'completed' AND updated_at::date = CURRENT_DATE) AS completed_today,
+      (SELECT COUNT(*)::int FROM clients WHERE status = 'cancelled' AND updated_at::date = CURRENT_DATE) AS cancelled_today
+  `;
+
+  const result: DashboardData = { queue: queueStats as DashboardData['queue'] };
+
+  if (role === 'lawyer') {
+    const [myStats] = await sql`
+      SELECT
+        (SELECT COUNT(*)::int FROM clients WHERE assigned_lawyer_id = ${userId} AND status = 'in_progress') AS in_progress,
+        (SELECT COUNT(*)::int FROM clients WHERE assigned_lawyer_id = ${userId} AND status = 'incomplete') AS incomplete,
+        (SELECT COUNT(*)::int FROM clients WHERE assigned_lawyer_id = ${userId} AND status = 'completed' AND updated_at::date = CURRENT_DATE) AS completed_today,
+        (SELECT COUNT(*)::int FROM clients WHERE assigned_lawyer_id = ${userId} AND status = 'completed' AND DATE_TRUNC('month', updated_at) = DATE_TRUNC('month', CURRENT_DATE)) AS completed_this_month
+    `;
+    result.my = myStats as DashboardData['my'];
+  }
+
+  return result;
+}
+
+export interface DashboardCharts {
+  daily: { date: string; count: number }[];
+  categories?: { name: string; count: number }[];
+}
+
+export async function getDashboardCharts(userId: number, role: string): Promise<DashboardCharts> {
+  const dailyRows = role === 'lawyer'
+    ? await sql`
+        SELECT gs.day::date AS date, COALESCE(cnt, 0)::int AS count
+        FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE, '1 day'::interval) gs(day)
+        LEFT JOIN (
+          SELECT transaction_date, COUNT(*)::int AS cnt
+          FROM clients
+          WHERE status = 'completed' AND assigned_lawyer_id = ${userId}
+            AND transaction_date >= CURRENT_DATE - 13
+          GROUP BY transaction_date
+        ) counts ON counts.transaction_date = gs.day::date
+        ORDER BY gs.day
+      `
+    : await sql`
+        SELECT gs.day::date AS date, COALESCE(cnt, 0)::int AS count
+        FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE, '1 day'::interval) gs(day)
+        LEFT JOIN (
+          SELECT transaction_date, COUNT(*)::int AS cnt
+          FROM clients
+          WHERE status = 'completed'
+            AND transaction_date >= CURRENT_DATE - 13
+          GROUP BY transaction_date
+        ) counts ON counts.transaction_date = gs.day::date
+        ORDER BY gs.day
+      `;
+
+  const result: DashboardCharts = { daily: dailyRows as DashboardCharts['daily'] };
+
+  if (role === 'lawyer' || role === 'admin') {
+    const catRows = role === 'lawyer'
+      ? await sql`
+          SELECT ic.category_name AS name, COUNT(*)::int AS count
+          FROM client_issues ci
+          JOIN issue_categories ic ON ic.category_id = ci.category_id
+          JOIN clients c ON c.client_id = ci.client_id
+          WHERE c.status = 'completed' AND c.assigned_lawyer_id = ${userId}
+          GROUP BY ic.category_name
+          ORDER BY count DESC
+          LIMIT 10
+        `
+      : await sql`
+          SELECT ic.category_name AS name, COUNT(*)::int AS count
+          FROM client_issues ci
+          JOIN issue_categories ic ON ic.category_id = ci.category_id
+          JOIN clients c ON c.client_id = ci.client_id
+          WHERE c.status = 'completed'
+          GROUP BY ic.category_name
+          ORDER BY count DESC
+          LIMIT 10
+        `;
+    result.categories = catRows as DashboardCharts['categories'];
+  }
+
+  return result;
 }
 
 export async function listAllCompleted(filters: HistoryFilters): Promise<CompletedTransaction[]> {

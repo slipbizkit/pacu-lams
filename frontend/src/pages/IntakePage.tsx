@@ -1,10 +1,9 @@
 import { createPortal } from 'react-dom';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import { clientService, lookupService } from '../services/api';
 import type { CityMunicipality, ClientSex, IntakeBody, IntakeResult, PendingComplaintType } from '../types/client';
 import { PENDING_COMPLAINT_TYPES } from '../types/client';
-import { BrandMark } from '../components/BrandMark';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { MultiSelectChips } from '../components/MultiSelectChips';
@@ -27,6 +26,7 @@ const EMPTY_FORM: IntakeBody = {
   is_pwd: false,
   is_senior: false,
   is_pregnant: false,
+  is_anonymous: false,
 };
 
 const STEP_TITLES = ['Client Information', 'Employment & Status', 'Company Details', 'Review'];
@@ -44,13 +44,31 @@ function formatContactNo(digits: string): string {
 
 function validateStep(step: number, form: IntakeBody): FieldErrors {
   const errors: FieldErrors = {};
+  const isAnon = form.is_anonymous;
 
   if (step === 0) {
-    if (!form.first_name?.trim()) errors.first_name = 'First name is required';
-    if (!form.last_name?.trim()) errors.last_name = 'Last name is required';
+    if (!isAnon) {
+      if (!form.first_name?.trim()) errors.first_name = 'First name is required';
+      if (!form.last_name?.trim()) errors.last_name = 'Last name is required';
+      if (!form.sex) errors.sex = 'Sex is required';
+      const rawContact = form.contact_no?.replace(/-/g, '') ?? '';
+      if (rawContact.length < 11) errors.contact_no = 'Contact number is required';
+      if (!form.city_id) errors.city_id = 'City/Municipality is required';
+    }
     if (form.email?.trim() && !EMAIL_PATTERN.test(form.email.trim())) {
       errors.email = 'Enter a valid email address';
     }
+  }
+
+  if (step === 1 && !isAnon) {
+    if (!form.occupation?.trim()) errors.occupation = 'Work position is required';
+    if (!form.date_of_employment) errors.date_of_employment = 'Date of employment is required';
+    if (form.union_member === undefined) errors.union_member = 'Please indicate union membership';
+  }
+
+  if (step === 2) {
+    if (!form.employer?.trim()) errors.employer = 'Company name is required';
+    if (!form.company_city_id) errors.company_city_id = 'Company address is required';
   }
 
   return errors;
@@ -58,6 +76,7 @@ function validateStep(step: number, form: IntakeBody): FieldErrors {
 
 export default function IntakePage() {
   const [consentGiven, setConsentGiven] = useState(false);
+  const [anonymousChosen, setAnonymousChosen] = useState(false);
   const [form, setForm] = useState<IntakeBody>(EMPTY_FORM);
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
@@ -141,6 +160,7 @@ export default function IntakePage() {
 
   function startNewEntry() {
     setConsentGiven(false);
+    setAnonymousChosen(false);
     setForm(EMPTY_FORM);
     setErrors({});
     setStep(0);
@@ -150,15 +170,42 @@ export default function IntakePage() {
   return (
     <div style={{ minHeight: '100vh' }}>
       {!consentGiven && <PrivacyNoticeModal onAgree={() => setConsentGiven(true)} />}
-      <div className="d-flex justify-content-between align-items-center p-4">
-        <div className="d-flex align-items-center gap-2">
-          <BrandMark size={30} />
-          <span className="pacu-display fs-5">Assistance Form</span>
-        </div>
-        <ThemeSwitcher />
-      </div>
+      {consentGiven && !anonymousChosen && (
+        <AnonModal
+          onChoose={(isAnon) => {
+            update('is_anonymous', isAnon);
+            setAnonymousChosen(true);
+          }}
+        />
+      )}
 
-      <div className="d-flex justify-content-center px-3 pb-5">
+      <header className="pacu-intake-navbar">
+        <div className="pacu-intake-navbar-left">
+          <div className="pacu-intake-wordmark">
+            <span>Client</span>
+            <span>Form</span>
+          </div>
+        </div>
+
+        <div className="pacu-intake-navbar-center">
+          <div className="pacu-dole-banner">
+            <img src="/dole-logo.png" alt="DOLE" className="pacu-dole-banner-logo" />
+            <div className="pacu-dole-banner-text">
+              <div className="pacu-dole-banner-republic">
+                <span>Republic of the Philippines</span>
+                <span className="pacu-dole-banner-rule" />
+              </div>
+              <div className="pacu-dole-banner-dept">Department of Labor and Employment</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="pacu-intake-navbar-right">
+          <ThemeSwitcher />
+        </div>
+      </header>
+
+      <div className="d-flex justify-content-center px-3 pb-5 pacu-intake-content">
         <div className="pacu-intake-shell">
           {result ? (
             <div className="card pacu-auth-success">
@@ -210,11 +257,12 @@ export default function IntakePage() {
                     {step === 0 && (
                       <ClientInfoStep form={form} update={update} errors={errors} cities={cities} />
                     )}
+
                     {step === 1 && (
-                      <EmploymentStatusStep form={form} update={update} />
+                      <EmploymentStatusStep form={form} update={update} errors={errors} />
                     )}
                     {step === 2 && (
-                      <CompanyDetailsStep form={form} update={update} cities={cities} />
+                      <CompanyDetailsStep form={form} update={update} errors={errors} cities={cities} />
                     )}
                     {step === 3 && <ReviewStep form={form} cities={cities} />}
                   </div>
@@ -260,6 +308,8 @@ export default function IntakePage() {
 function PrivacyNoticeModal({ onAgree }: { onAgree: () => void }) {
   const [englishOpen, setEnglishOpen] = useState(true);
   const [filipinoOpen, setFilipinoOpen] = useState(true);
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function block(e: KeyboardEvent) {
@@ -269,17 +319,44 @@ function PrivacyNoticeModal({ onAgree }: { onAgree: () => void }) {
     return () => document.removeEventListener('keydown', block, true);
   }, []);
 
+  function handleScroll() {
+    const el = bodyRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) {
+      setScrolledToBottom(true);
+    }
+  }
+
   return createPortal(
     <>
       <div className="pacu-privacy-backdrop" />
       <div className="pacu-privacy-wrap">
         <div className="pacu-privacy-modal">
 
-          <div className="pacu-privacy-header">
-            <h5 className="pacu-display mb-0">Privacy Notice / Paunawa sa Pribasidad</h5>
+          {/* Government banner */}
+          <div className="pacu-privacy-banner">
+            <span className="pacu-privacy-banner-logo">
+              <img src="/dole-logo.png" alt="DOLE" />
+            </span>
+            <div className="pacu-privacy-banner-text">
+              <span className="pacu-privacy-banner-republic">Republic of the Philippines</span>
+              <span className="pacu-privacy-banner-rule" />
+              <span className="pacu-privacy-banner-dept">Department of Labor and Employment</span>
+            </div>
           </div>
 
-          <div className="pacu-privacy-body">
+          {/* Title bar */}
+          <div className="pacu-privacy-titlebar">
+            <span className="pacu-privacy-shield">
+              <i className="bi bi-shield-lock-fill" />
+            </span>
+            <div>
+              <h5 className="pacu-privacy-title mb-0">Privacy Notice</h5>
+              <p className="pacu-privacy-subtitle mb-0">Data Privacy Act of 2012 — Republic Act No. 10173</p>
+            </div>
+          </div>
+
+          <div className="pacu-privacy-body" ref={bodyRef} onScroll={handleScroll}>
 
             <button
               type="button"
@@ -293,13 +370,11 @@ function PrivacyNoticeModal({ onAgree }: { onAgree: () => void }) {
 
             {englishOpen && (
               <div className="pacu-privacy-content">
-                <p className="pacu-eyebrow mb-3">PRIVACY NOTICE</p>
                 <p>By submitting this form, you acknowledge that the Department of Labor and Employment (DOLE) collects and processes your personal information, such as your name, age, and email address, for the purpose of responding to your legal query, in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173), its Implementing Rules and Regulations, and relevant issuances of the National Privacy Commission.</p>
                 <p>DOLE assures data subjects that all personal data collected through this platform shall be processed with due diligence and prudence and shall be used solely for the declared purpose.</p>
                 <p>Access to your personal information is limited to duly authorized DOLE personnel. Your personal data shall be stored in a secure database.</p>
                 <p>As a data subject, you have the right to be informed, to access, and to request the correction of your personal data processed by DOLE, subject to the limitations provided by law. You may exercise these rights by contacting DOLE during office hours, from Monday to Friday, 8:00 a.m. to 5:00 p.m., except holidays, through the following contact details:</p>
-                <p><strong>DOLE Data Protection Officer</strong><br />Mobile No.: (02) 8527 3000 (local 710/715)<br />Email: dpo@dole.gov.ph</p>
-                <p><strong>DOLE Legal Service</strong><br />Landline No.: (02) 8527 3000 (local 607)<br />Email: ls@dole.gov.ph</p>
+                <ContactBlock />
               </div>
             )}
 
@@ -317,21 +392,31 @@ function PrivacyNoticeModal({ onAgree }: { onAgree: () => void }) {
 
             {filipinoOpen && (
               <div className="pacu-privacy-content">
-                <p className="pacu-eyebrow mb-3">PAUNAWA SA PRIBASIDAD</p>
                 <p>Sa pamamagitan ng pagsumite ng pormang ito, kinikilala mo na ang Department of Labor and Employment (DOLE) ay nangongolekta at nagpoproseso ng iyong personal na impormasyon, gaya ng iyong pangalan, edad, at email address, para sa layuning tumugon sa iyong legal na katanungan, alinsunod sa Data Privacy Act of 2012 (Republic Act No. 10173), sa mga Implementing Rules and Regulations nito, at sa mga kaugnay na kautusan ng National Privacy Commission.</p>
                 <p>Tinitiyak ng DOLE sa mga data subject na ang lahat ng personal na datos na makokolekta sa pamamagitan ng platapormang ito ay ipoproseso nang may nararapat na pag-iingat at pagkamahinahon at gagamitin lamang para sa ipinahayag na layunin.</p>
                 <p>Ang pag-access sa iyong personal na impormasyon ay limitado lamang sa mga duly authorized personnel ng DOLE. Ang iyong personal na datos ay itatago sa isang ligtas na database.</p>
                 <p>Bilang isang data subject, ikaw ay may karapatang mabigyan ng impormasyon, magkaroon ng access, at humiling ng pagwawasto ng iyong personal na datos na pinoproseso ng DOLE, alinsunod sa mga limitasyong itinakda ng batas. Maaari mong gamitin ang mga karapatang ito sa pamamagitan ng pakikipag-ugnayan sa DOLE sa oras ng opisina, mula Lunes hanggang Biyernes, ika-8:00 ng umaga hanggang ika-5:00 ng hapon, maliban sa mga pista opisyal, sa pamamagitan ng mga sumusunod na detalye:</p>
-                <p><strong>DOLE Data Protection Officer</strong><br />Mobile No.: (02) 8527 3000 (local 710/715)<br />Email: dpo@dole.gov.ph</p>
-                <p><strong>DOLE Legal Service</strong><br />Landline No.: (02) 8527 3000 (local 607)<br />Email: ls@dole.gov.ph</p>
+                <ContactBlock />
               </div>
             )}
 
           </div>
 
           <div className="pacu-privacy-footer">
-            <button type="button" className="btn btn-primary btn-sm" onClick={onAgree}>
-              I Agree (Sumasang-ayon Ako)
+            {!scrolledToBottom && (
+              <p className="pacu-privacy-scroll-hint">
+                <i className="bi bi-arrow-down-circle me-1" />
+                Scroll down to read the full notice
+              </p>
+            )}
+            <button
+              type="button"
+              className="btn pacu-privacy-agree"
+              onClick={onAgree}
+              disabled={!scrolledToBottom}
+            >
+              <i className="bi bi-check2-circle me-2" />
+              I Understand &amp; Acknowledge
             </button>
           </div>
 
@@ -343,12 +428,100 @@ function PrivacyNoticeModal({ onAgree }: { onAgree: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
+// Anonymous Inquiry Modal
+// ---------------------------------------------------------------------------
+
+function AnonModal({ onChoose }: { onChoose: (isAnonymous: boolean) => void }) {
+  useEffect(() => {
+    function block(e: KeyboardEvent) {
+      if (e.key === 'Escape') e.preventDefault();
+    }
+    document.addEventListener('keydown', block, true);
+    return () => document.removeEventListener('keydown', block, true);
+  }, []);
+
+  return createPortal(
+    <>
+      <div className="pacu-privacy-backdrop" />
+      <div className="pacu-privacy-wrap">
+        <div className="pacu-privacy-modal">
+
+          {/* Government banner */}
+          <div className="pacu-privacy-banner">
+            <span className="pacu-privacy-banner-logo">
+              <img src="/dole-logo.png" alt="DOLE" />
+            </span>
+            <div className="pacu-privacy-banner-text">
+              <span className="pacu-privacy-banner-republic">Republic of the Philippines</span>
+              <span className="pacu-privacy-banner-rule" />
+              <span className="pacu-privacy-banner-dept">Department of Labor and Employment</span>
+            </div>
+          </div>
+
+          {/* Title bar */}
+          <div className="pacu-privacy-titlebar">
+            <span className="pacu-privacy-shield">
+              <i className="bi bi-incognito" />
+            </span>
+            <div>
+              <h5 className="pacu-privacy-title mb-0">Anonymous Inquiry</h5>
+              <p className="pacu-privacy-subtitle mb-0">Would you like to remain anonymous?</p>
+            </div>
+          </div>
+
+          <div className="pacu-privacy-body">
+            <div className="pacu-privacy-content">
+              <p>You may choose to remain anonymous. If you select <strong>Yes</strong>, your name and personal contact details will not be required. Your legal concern will still be documented and attended to by DOLE personnel.</p>
+              <p>Note that choosing anonymity may limit our ability to follow up with you regarding the status of your concern.</p>
+              <hr className="pacu-privacy-divider" />
+              <p>Maaari kang pumili na manatiling anonymous. Kung pipiliin mo ang <strong>Oo</strong>, hindi na kakailanganin ang iyong pangalan at personal na impormasyon. Ang iyong legal na alalahanin ay idodokumento pa rin at haharapin ng mga tauhan ng DOLE.</p>
+              <p>Tandaan na ang pagpili ng anonymity ay maaaring maglimita sa kakayahan naming makipag-ugnayan sa iyo tungkol sa katayuan ng iyong alalahanin.</p>
+            </div>
+          </div>
+
+          <div className="pacu-privacy-footer pacu-anon-footer">
+            <button type="button" className="btn pacu-anon-btn-no" onClick={() => onChoose(true)}>
+              <i className="bi bi-incognito me-2" />
+              Yes, stay anonymous
+            </button>
+            <button type="button" className="btn pacu-privacy-agree pacu-anon-btn-yes" onClick={() => onChoose(false)}>
+              <i className="bi bi-person-check me-2" />
+              No, don't stay anonymous
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
+function ContactBlock() {
+  return (
+    <div className="pacu-privacy-contact">
+      <div className="pacu-privacy-contact-group">
+        <p className="pacu-privacy-contact-title"><i className="bi bi-person-badge" />DOLE Data Protection Officer</p>
+        <p className="pacu-privacy-contact-line"><i className="bi bi-telephone" /><span><strong>Mobile No.:</strong> (02) 8527 3000 (local 710/715)</span></p>
+        <p className="pacu-privacy-contact-line"><i className="bi bi-envelope" /><span><strong>Email:</strong> dpo@dole.gov.ph</span></p>
+      </div>
+      <div className="pacu-privacy-contact-group">
+        <p className="pacu-privacy-contact-title"><i className="bi bi-person-badge" />DOLE Legal Service</p>
+        <p className="pacu-privacy-contact-line"><i className="bi bi-telephone" /><span><strong>Landline No.:</strong> (02) 8527 3000 (local 607)</span></p>
+        <p className="pacu-privacy-contact-line"><i className="bi bi-envelope" /><span><strong>Email:</strong> ls@dole.gov.ph</span></p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Step 1 — Client Information
 // ---------------------------------------------------------------------------
 
 interface StepProps {
   form: IntakeBody;
   update: <K extends keyof IntakeBody>(key: K, value: IntakeBody[K]) => void;
+  errors: FieldErrors;
 }
 
 // Dozens of city/municipality names repeat across provinces (e.g. "San Jose" appears 9
@@ -365,7 +538,9 @@ function toCityOptions(cities: CityMunicipality[]) {
   }));
 }
 
-function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: FieldErrors; cities: CityMunicipality[] }) {
+function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: CityMunicipality[] }) {
+  const req = !form.is_anonymous;
+
   function handleContactChange(value: string) {
     const digits = value.replace(/\D/g, '');
     const enforced = digits.startsWith('09') ? digits.slice(0, 11) : '09';
@@ -377,7 +552,7 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
       <p className="pacu-eyebrow mb-3">Name of Client / Pangalan ng Kliyente</p>
       <div className="row g-3 mb-2">
         <div className="col-sm-6 col-lg-4">
-          <label className="form-label">First name *</label>
+          <label className="form-label">First name{req && ' *'}</label>
           <div className={`pacu-wizard-field${errors.first_name ? ' is-error' : ''}`}>
             <input
               className="form-control"
@@ -395,7 +570,7 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
           <input className="form-control" value={form.middle_name} onChange={(e) => update('middle_name', e.target.value)} />
         </div>
         <div className="col-sm-6 col-lg-4">
-          <label className="form-label">Last name *</label>
+          <label className="form-label">Last name{req && ' *'}</label>
           <div className={`pacu-wizard-field${errors.last_name ? ' is-error' : ''}`}>
             <input className="form-control" value={form.last_name} onChange={(e) => update('last_name', e.target.value)} />
             {errors.last_name && (
@@ -411,22 +586,32 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
           <input className="form-control" placeholder="Jr., Sr., III" value={form.suffix} onChange={(e) => update('suffix', e.target.value)} />
         </div>
         <div className="col-sm-6 col-lg-3">
-          <label className="form-label">Sex</label>
-          <select className="form-select" value={form.sex ?? ''} onChange={(e) => update('sex', (e.target.value || undefined) as ClientSex | undefined)}>
-            <option value="">Select</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
+          <label className="form-label">Sex{req && ' *'}</label>
+          <div className={`pacu-wizard-field${errors.sex ? ' is-error' : ''}`}>
+            <select className="form-select" value={form.sex ?? ''} onChange={(e) => update('sex', (e.target.value || undefined) as ClientSex | undefined)}>
+              <option value="">Select</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+            {errors.sex && (
+              <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.sex}</div>
+            )}
+          </div>
         </div>
         <div className="col-sm-6 col-lg-3">
-          <label className="form-label">Contact number</label>
-          <input
-            className="form-control"
-            inputMode="numeric"
-            placeholder="09XX-XXX-XXXX"
-            value={form.contact_no}
-            onChange={(e) => handleContactChange(e.target.value)}
-          />
+          <label className="form-label">Contact number{req && ' *'}</label>
+          <div className={`pacu-wizard-field${errors.contact_no ? ' is-error' : ''}`}>
+            <input
+              className="form-control"
+              inputMode="numeric"
+              placeholder="09XX-XXX-XXXX"
+              value={form.contact_no}
+              onChange={(e) => handleContactChange(e.target.value)}
+            />
+            {errors.contact_no && (
+              <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.contact_no}</div>
+            )}
+          </div>
         </div>
         <div className="col-sm-6 col-lg-3">
           <label className="form-label">Email</label>
@@ -441,13 +626,18 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
 
       <p className="pacu-eyebrow mb-3">Address / Tirahan</p>
       <div className="mb-2">
-        <label className="form-label">City/Municipality</label>
-        <SearchableSelect
-          options={toCityOptions(cities)}
-          value={form.city_id ?? null}
-          onChange={(id) => update('city_id', id ?? undefined)}
-          placeholder="Search for a city or municipality…"
-        />
+        <label className="form-label">City/Municipality{req && ' *'}</label>
+        <div className={`pacu-wizard-field${errors.city_id ? ' is-error' : ''}`}>
+          <SearchableSelect
+            options={toCityOptions(cities)}
+            value={form.city_id ?? null}
+            onChange={(id) => update('city_id', id ?? undefined)}
+            placeholder="Search for a city or municipality…"
+          />
+          {errors.city_id && (
+            <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.city_id}</div>
+          )}
+        </div>
       </div>
     </>
   );
@@ -457,28 +647,40 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { errors: 
 // Step 2 — Employment & Status
 // ---------------------------------------------------------------------------
 
-function EmploymentStatusStep({ form, update }: StepProps) {
+function EmploymentStatusStep({ form, update, errors }: StepProps) {
+  const req = !form.is_anonymous;
+
   return (
     <>
       <p className="pacu-eyebrow mb-3">Employment</p>
       <div className="row g-3 mb-4">
         <div className="col-sm-6">
-          <label className="form-label">Work Position / Posisyon sa Trabaho</label>
-          <input className="form-control" value={form.occupation} onChange={(e) => update('occupation', e.target.value)} />
+          <label className="form-label">Work Position / Posisyon sa Trabaho{req && ' *'}</label>
+          <div className={`pacu-wizard-field${errors.occupation ? ' is-error' : ''}`}>
+            <input className="form-control" value={form.occupation} onChange={(e) => update('occupation', e.target.value)} />
+            {errors.occupation && (
+              <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.occupation}</div>
+            )}
+          </div>
         </div>
         <div className="col-sm-6">
-          <label className="form-label">Date of Employment / Kailan Nakapasok sa Trabaho</label>
-          <input
-            type="date"
-            className="form-control"
-            value={form.date_of_employment}
-            onChange={(e) => update('date_of_employment', e.target.value)}
-          />
+          <label className="form-label">Date of Employment / Kailan Nakapasok sa Trabaho{req && ' *'}</label>
+          <div className={`pacu-wizard-field${errors.date_of_employment ? ' is-error' : ''}`}>
+            <input
+              type="date"
+              className="form-control"
+              value={form.date_of_employment}
+              onChange={(e) => update('date_of_employment', e.target.value)}
+            />
+            {errors.date_of_employment && (
+              <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.date_of_employment}</div>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="mb-4">
-        <label className="form-label d-block">Union Membership / Miyembro ng Unyon ng Manggagawa</label>
+        <label className="form-label d-block">Union Membership / Miyembro ng Unyon ng Manggagawa{req && ' *'}</label>
         <div className="d-flex gap-4">
           <div className="form-check">
             <input
@@ -503,6 +705,9 @@ function EmploymentStatusStep({ form, update }: StepProps) {
             <label className="form-check-label" htmlFor="union_member_no">No</label>
           </div>
         </div>
+        {errors.union_member && (
+          <div className="pacu-wizard-error mt-1"><i className="bi bi-exclamation-circle" />{errors.union_member}</div>
+        )}
       </div>
 
       <div className="card">
@@ -532,24 +737,34 @@ function EmploymentStatusStep({ form, update }: StepProps) {
 // Step 3 — Company Details
 // ---------------------------------------------------------------------------
 
-function CompanyDetailsStep({ form, update, cities }: StepProps & { cities: CityMunicipality[] }) {
+function CompanyDetailsStep({ form, update, errors, cities }: StepProps & { cities: CityMunicipality[] }) {
   return (
     <>
       <p className="pacu-eyebrow mb-3">Company Details</p>
       <div className="row g-3 mb-4">
         <div className="col-lg-6">
-          <label className="form-label">Name of Company / Pangalan ng Kumpanya</label>
-          <input className="form-control" value={form.employer} onChange={(e) => update('employer', e.target.value)} />
+          <label className="form-label">Name of Company / Pangalan ng Kumpanya *</label>
+          <div className={`pacu-wizard-field${errors.employer ? ' is-error' : ''}`}>
+            <input className="form-control" value={form.employer} onChange={(e) => update('employer', e.target.value)} />
+            {errors.employer && (
+              <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.employer}</div>
+            )}
+          </div>
         </div>
 
         <div className="col-lg-6">
-          <label className="form-label">Address of Company (City/Municipality)</label>
-          <SearchableSelect
-            options={toCityOptions(cities)}
-            value={form.company_city_id ?? null}
-            onChange={(id) => update('company_city_id', id ?? undefined)}
-            placeholder="Search for a city or municipality…"
-          />
+          <label className="form-label">Address of Company (City/Municipality) *</label>
+          <div className={`pacu-wizard-field${errors.company_city_id ? ' is-error' : ''}`}>
+            <SearchableSelect
+              options={toCityOptions(cities)}
+              value={form.company_city_id ?? null}
+              onChange={(id) => update('company_city_id', id ?? undefined)}
+              placeholder="Search for a city or municipality…"
+            />
+            {errors.company_city_id && (
+              <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.company_city_id}</div>
+            )}
+          </div>
         </div>
       </div>
 

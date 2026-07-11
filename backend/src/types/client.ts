@@ -1,6 +1,5 @@
 export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'incomplete' | 'completed' | 'cancelled';
 export type ClientSex = 'male' | 'female';
-export type CivilStatus = 'single' | 'married' | 'widowed' | 'separated' | 'divorced';
 export type PendingComplaintType = 'NLRC' | 'DOLE Regional/Field Office' | 'NCMB' | 'DMW' | 'OWWA' | 'Others';
 
 export interface Client {
@@ -14,13 +13,10 @@ export interface Client {
   last_name: string;
   suffix: string | null;
   sex: ClientSex | null;
-  birth_date: string | null;
-  civil_status: CivilStatus | null;
 
   contact_no: string | null;
   email: string | null;
 
-  address: string | null;
   city_id: number | null;
 
   occupation: string | null;
@@ -35,6 +31,7 @@ export interface Client {
   is_pwd: boolean;
   is_senior: boolean;
   is_pregnant: boolean;
+  is_anonymous: boolean;
 
   assigned_lawyer_id: number | null;
 
@@ -47,7 +44,6 @@ export interface Client {
 
   status: ClientStatus;
   cancellation_reason: string | null;
-  encoded_by: number | null;
 
   created_at: string;
   updated_at: string;
@@ -87,6 +83,7 @@ export interface IntakeBody {
   is_pwd?: boolean;
   is_senior?: boolean;
   is_pregnant?: boolean;
+  is_anonymous?: boolean;
 }
 
 export interface IntakeResult {

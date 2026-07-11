@@ -1,6 +1,5 @@
 export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'incomplete' | 'completed' | 'cancelled';
 export type ClientSex = 'male' | 'female';
-export type CivilStatus = 'single' | 'married' | 'widowed' | 'separated' | 'divorced';
 export type PendingComplaintType = 'NLRC' | 'DOLE Regional/Field Office' | 'NCMB' | 'DMW' | 'OWWA' | 'Others';
 
 export interface CityMunicipality {
@@ -31,13 +30,10 @@ export interface Client {
   last_name: string;
   suffix: string | null;
   sex: ClientSex | null;
-  birth_date: string | null;
-  civil_status: CivilStatus | null;
 
   contact_no: string | null;
   email: string | null;
 
-  address: string | null;
   city_id: number | null;
 
   occupation: string | null;
@@ -52,6 +48,7 @@ export interface Client {
   is_pwd: boolean;
   is_senior: boolean;
   is_pregnant: boolean;
+  is_anonymous: boolean;
 
   assigned_lawyer_id: number | null;
   legal_advice: string | null;
@@ -92,6 +89,28 @@ export interface ActivityItem {
   updated_at: string;
   cancellation_reason: string | null;
   lawyer_name: string | null;
+}
+
+export interface DashboardCharts {
+  daily: { date: string; count: number }[];
+  categories?: { name: string; count: number }[];
+}
+
+export interface Dashboard {
+  queue: {
+    waiting: number;
+    priority_waiting: number;
+    in_progress: number;
+    incomplete: number;
+    completed_today: number;
+    cancelled_today: number;
+  };
+  my?: {
+    in_progress: number;
+    incomplete: number;
+    completed_today: number;
+    completed_this_month: number;
+  };
 }
 
 export interface SupportStaffDashboard {
@@ -149,6 +168,7 @@ export interface IntakeBody {
   is_pwd?: boolean;
   is_senior?: boolean;
   is_pregnant?: boolean;
+  is_anonymous?: boolean;
 }
 
 export interface IntakeResult {
@@ -194,8 +214,6 @@ export interface ReportFilters {
   issue_category_id?: number;
   referred_office_id?: number;
   sex?: string;
-  min_age?: number;
-  max_age?: number;
   city?: string;
   province?: string;
   priority_only?: boolean;
@@ -221,7 +239,6 @@ export interface ReportRow {
   first_name: string;
   last_name: string;
   sex: string | null;
-  age: number | null;
   city: string | null;
   province: string | null;
   region: string | null;

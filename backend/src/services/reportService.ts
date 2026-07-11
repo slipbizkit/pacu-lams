@@ -23,8 +23,6 @@ export async function runReport(filters: ReportFilters): Promise<ReportRow[]> {
   if (filters.province) addCondition('cm.province ILIKE ?', `%${filters.province}%`);
   if (filters.status) addCondition('c.status = ?', filters.status);
   if (filters.priority_only) conditions.push('(c.is_senior OR c.is_pwd OR c.is_pregnant)');
-  if (filters.min_age != null) addCondition('DATE_PART(\'year\', AGE(CURRENT_DATE, c.birth_date)) >= ?', filters.min_age);
-  if (filters.max_age != null) addCondition('DATE_PART(\'year\', AGE(CURRENT_DATE, c.birth_date)) <= ?', filters.max_age);
   if (filters.issue_category_id) {
     params.push(filters.issue_category_id);
     conditions.push(`EXISTS (SELECT 1 FROM client_issues ci WHERE ci.client_id = c.client_id AND ci.category_id = $${params.length})`);
@@ -36,7 +34,6 @@ export async function runReport(filters: ReportFilters): Promise<ReportRow[]> {
     SELECT
       c.client_id, c.reference_no, c.queue_number, c.transaction_date,
       c.first_name, c.last_name, c.sex,
-      DATE_PART('year', AGE(CURRENT_DATE, c.birth_date))::int AS age,
       cm.city_municipality AS city, cm.province AS province, cm.region AS region,
       c.is_senior, c.is_pwd, c.is_pregnant, c.status,
       TRIM(CONCAT(u.first_name, ' ', u.last_name)) AS lawyer_name,
@@ -69,7 +66,6 @@ export async function buildExcelBuffer(rows: ReportRow[]): Promise<Buffer> {
     { header: 'Queue #', key: 'queue_number', width: 10 },
     { header: 'Client Name', key: 'name', width: 24 },
     { header: 'Sex', key: 'sex', width: 10 },
-    { header: 'Age', key: 'age', width: 8 },
     { header: 'City', key: 'city', width: 16 },
     { header: 'Province', key: 'province', width: 16 },
     { header: 'Priority', key: 'priority', width: 18 },
@@ -90,7 +86,6 @@ export async function buildExcelBuffer(rows: ReportRow[]): Promise<Buffer> {
       queue_number: row.queue_number,
       name: `${row.first_name} ${row.last_name}`,
       sex: row.sex ?? '',
-      age: row.age ?? '',
       city: row.city ?? '',
       province: row.province ?? '',
       priority,
@@ -117,8 +112,8 @@ export function buildPdfBuffer(rows: ReportRow[]): Promise<Buffer> {
     doc.fontSize(9).fillColor('#666').text(`Generated ${new Date().toLocaleString()} — ${rows.length} record(s)`);
     doc.moveDown();
 
-    const columns = ['Ref No.', 'Date', 'Client', 'Sex/Age', 'Lawyer', 'Issues', 'Office', 'Status'];
-    const widths = [90, 60, 110, 55, 100, 160, 110, 70];
+    const columns = ['Ref No.', 'Date', 'Client', 'Sex', 'Lawyer', 'Issues', 'Office', 'Status'];
+    const widths = [90, 60, 110, 40, 100, 175, 110, 70];
     let y = doc.y;
     doc.fontSize(8).fillColor('#000');
 
@@ -144,7 +139,7 @@ export function buildPdfBuffer(rows: ReportRow[]): Promise<Buffer> {
           row.reference_no,
           row.transaction_date,
           `${row.first_name} ${row.last_name}${priority ? ` (${priority})` : ''}`,
-          `${row.sex ?? '-'}/${row.age ?? '-'}`,
+          row.sex ?? '-',
           row.lawyer_name ?? '-',
           row.issue_categories ?? '-',
           row.referred_office ?? '-',

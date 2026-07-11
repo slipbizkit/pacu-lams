@@ -17,8 +17,6 @@ function parseFilters(query: AuthRequest['query']): ReportFilters {
     issue_category_id: num(query.issue_category_id),
     referred_office_id: num(query.referred_office_id),
     sex: str(query.sex),
-    min_age: num(query.min_age),
-    max_age: num(query.max_age),
     city: str(query.city),
     province: str(query.province),
     priority_only: query.priority_only === 'true',

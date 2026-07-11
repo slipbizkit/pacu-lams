@@ -34,6 +34,7 @@ export default function QueuePage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [lawyers, setLawyers] = useState<LawyerOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [takingNext, setTakingNext] = useState(false);
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState(10);
@@ -105,6 +106,36 @@ export default function QueuePage() {
     return nums;
   }, [page, totalPages]);
 
+  async function handleTakeNext() {
+    setTakingNext(true);
+    try {
+      const queue = await clientService.listQueue();
+      if (queue.length === 0) {
+        Swal.fire({ icon: 'info', title: 'No one is waiting right now' });
+        return;
+      }
+      const next = queue[0];
+      const claimed = await clientService.claim(next.client_id);
+      setClients((prev) => prev.filter((c) => c.client_id !== claimed.client_id));
+      window.dispatchEvent(new Event('pacu:counts-changed'));
+      Swal.fire({ icon: 'success', title: `Claimed ${claimed.first_name} ${claimed.last_name}`, toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'LAWYER_IN_PROGRESS') {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Cannot Accept Client',
+          html: 'You already have a client that is currently <strong>In Progress</strong>.<br><br>Please complete or mark the current client as <strong>Incomplete</strong> before accepting another client from the queue.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: 'var(--pacu-accent)',
+        });
+      } else {
+        Swal.fire({ icon: 'error', title: 'Could not claim next client', text: err instanceof Error ? err.message : 'Please try again' });
+      }
+    } finally {
+      setTakingNext(false);
+    }
+  }
+
   async function handleRemove(client: Client) {
     const { value: reason, isConfirmed } = await Swal.fire({
       icon: 'warning',
@@ -140,6 +171,17 @@ export default function QueuePage() {
     });
 
     if (!isConfirmed || !reason) return;
+
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Are you sure?',
+      html: `<strong>${client.first_name} ${client.last_name}</strong> will be removed from the queue.<br><br>Reason: <em>${reason}</em>`,
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Remove',
+      confirmButtonColor: 'var(--bs-danger)',
+      cancelButtonText: 'Go Back',
+    });
+    if (!confirm.isConfirmed) return;
 
     setRemovingId(client.client_id);
     try {
@@ -188,9 +230,17 @@ export default function QueuePage() {
     <div>
       <div className="d-flex align-items-center justify-content-between mb-1">
         <h1 className="pacu-display mb-0">Queue</h1>
-        <span style={{ fontSize: '0.85rem' }}>
-          Automatically refreshes in: <span className="pacu-mono fw-semibold">{countdown}s</span>
-        </span>
+        <div className="d-flex align-items-center gap-3">
+          {role === 'lawyer' && (
+            <button className="btn btn-primary" onClick={handleTakeNext} disabled={takingNext}>
+              {takingNext ? <span className="spinner-border spinner-border-sm me-2" /> : <i className="bi bi-plus-lg me-2" />}
+              Take Next Client
+            </button>
+          )}
+          <span style={{ fontSize: '0.85rem' }}>
+            Automatically refreshes in: <span className="pacu-mono fw-semibold">{countdown}s</span>
+          </span>
+        </div>
       </div>
       <p className="text-muted mb-4" style={{ fontSize: '0.9rem' }}>
         Clients waiting to be assigned to a lawyer, priority clients first.

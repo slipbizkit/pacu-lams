@@ -6,6 +6,8 @@ import type {
   ConsultationBody,
   CreateIssueCategoryBody,
   CreateReferredOfficeBody,
+  Dashboard,
+  DashboardCharts,
   FeedbackStatus,
   HistoryFilters,
   IntakeBody,
@@ -156,6 +158,10 @@ export const clientService = {
     }),
   getSupportStaffDashboard: () =>
     apiFetch<SupportStaffDashboard>('/clients/ss-dashboard'),
+  getDashboard: () =>
+    apiFetch<Dashboard>('/clients/dashboard'),
+  getDashboardCharts: () =>
+    apiFetch<DashboardCharts>('/clients/dashboard/charts'),
   listAllHistory: (filters?: HistoryFilters) =>
     apiFetch<CompletedTransaction[]>(`/clients/all-history${toQueryString(filters ?? {})}`),
 };

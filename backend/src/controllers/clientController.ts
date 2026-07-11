@@ -19,8 +19,17 @@ const PENDING_COMPLAINT_TYPE_VALUES: PendingComplaintType[] = [
 export async function intake(req: Request, res: Response) {
   const body = req.body as IntakeBody;
 
-  if (!body.first_name?.trim() || !body.last_name?.trim()) {
-    return res.status(400).json({ message: 'First name and last name are required' });
+  if (body.is_anonymous) {
+    if (!body.employer?.trim()) {
+      return res.status(400).json({ message: 'Company name is required for anonymous inquiries' });
+    }
+    if (body.company_city_id == null) {
+      return res.status(400).json({ message: 'Company address is required for anonymous inquiries' });
+    }
+  } else {
+    if (!body.first_name?.trim() || !body.last_name?.trim()) {
+      return res.status(400).json({ message: 'First name and last name are required' });
+    }
   }
   if (body.sex && !SEX_VALUES.includes(body.sex)) {
     return res.status(400).json({ message: 'Invalid sex value' });
@@ -168,6 +177,16 @@ export async function removeFromQueue(req: AuthRequest, res: Response) {
 
 export async function getSupportStaffDashboard(_req: AuthRequest, res: Response) {
   const data = await ClientService.getSupportStaffDashboard();
+  res.json(data);
+}
+
+export async function getDashboard(req: AuthRequest, res: Response) {
+  const data = await ClientService.getDashboard(req.user!.id, req.user!.role);
+  res.json(data);
+}
+
+export async function getDashboardCharts(req: AuthRequest, res: Response) {
+  const data = await ClientService.getDashboardCharts(req.user!.id, req.user!.role);
   res.json(data);
 }
 
