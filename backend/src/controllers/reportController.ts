@@ -1,46 +1,35 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import * as ReportService from '../services/reportService';
-import { ReportFilters } from '../types/report';
 
-function parseFilters(query: AuthRequest['query']): ReportFilters {
-  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
-  const num = (v: unknown) => {
-    const s = str(v);
-    return s ? Number(s) : undefined;
-  };
-
-  return {
-    date_from: str(query.date_from),
-    date_to: str(query.date_to),
-    lawyer_id: num(query.lawyer_id),
-    issue_category_id: num(query.issue_category_id),
-    referred_office_id: num(query.referred_office_id),
-    sex: str(query.sex),
-    city: str(query.city),
-    province: str(query.province),
-    priority_only: query.priority_only === 'true',
-    status: str(query.status),
-  };
+// Accepts ?month=YYYY-MM; defaults to the current calendar month.
+function parseMonth(query: AuthRequest['query']): string {
+  const raw = typeof query.month === 'string' ? query.month.trim() : '';
+  if (/^\d{4}-\d{2}$/.test(raw)) {
+    const m = Number(raw.slice(5));
+    if (m >= 1 && m <= 12) return raw;
+  }
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export async function runReport(req: AuthRequest, res: Response) {
-  const rows = await ReportService.runReport(parseFilters(req.query));
-  res.json(rows);
+export async function getMonthly(req: AuthRequest, res: Response) {
+  const report = await ReportService.getMonthlyReport(parseMonth(req.query));
+  res.json(report);
 }
 
 export async function exportExcel(req: AuthRequest, res: Response) {
-  const rows = await ReportService.runReport(parseFilters(req.query));
-  const buffer = await ReportService.buildExcelBuffer(rows);
+  const report = await ReportService.getMonthlyReport(parseMonth(req.query));
+  const buffer = await ReportService.buildExcelBuffer(report);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename="pacu-report-${Date.now()}.xlsx"`);
+  res.setHeader('Content-Disposition', `attachment; filename="pacu-monthly-report-${report.month}.xlsx"`);
   res.send(buffer);
 }
 
 export async function exportPdf(req: AuthRequest, res: Response) {
-  const rows = await ReportService.runReport(parseFilters(req.query));
-  const buffer = await ReportService.buildPdfBuffer(rows);
+  const report = await ReportService.getMonthlyReport(parseMonth(req.query));
+  const buffer = await ReportService.buildPdfBuffer(report);
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="pacu-report-${Date.now()}.pdf"`);
+  res.setHeader('Content-Disposition', `attachment; filename="pacu-monthly-report-${report.month}.pdf"`);
   res.send(buffer);
 }
