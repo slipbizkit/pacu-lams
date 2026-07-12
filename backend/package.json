@@ -24,7 +24,9 @@
     "jsonwebtoken": "^9.0.2",
     "pdfkit": "^0.19.1",
     "qrcode": "^1.5.4",
-    "speakeasy": "^2.0.0"
+    "resend": "^6.17.2",
+    "speakeasy": "^2.0.0",
+    "svix": "^1.96.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

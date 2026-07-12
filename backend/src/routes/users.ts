@@ -16,5 +16,6 @@ router.get('/', requireAuth, requireRole('admin'), asyncHandler(UserController.l
 router.post('/', requireAuth, requireRole('admin'), asyncHandler(UserController.createUser));
 router.patch('/:id', requireAuth, requireRole('admin'), asyncHandler(UserController.updateUser));
 router.post('/:id/reset-totp', requireAuth, requireRole('admin'), asyncHandler(UserController.resetTotp));
+router.post('/:id/reset-password', requireAuth, requireRole('admin'), asyncHandler(UserController.resetPassword));
 
 export default router;

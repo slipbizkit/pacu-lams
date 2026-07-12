@@ -43,6 +43,13 @@ router.post(
   asyncHandler(ClientController.cancelTransaction)
 );
 
+router.post(
+  '/:id/send-email',
+  requireAuth,
+  requireRole('lawyer'),
+  asyncHandler(ClientController.sendEmail)
+);
+
 router.get(
   '/:id/referral.pdf',
   requireAuth,

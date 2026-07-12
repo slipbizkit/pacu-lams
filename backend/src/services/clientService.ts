@@ -1,6 +1,8 @@
 import sql from '../db';
 import { Client, CompletedTransaction, ConsultationBody, HistoryFilters, IntakeBody, IssueTag } from '../types/client';
 import { nextQueueSlot, buildReferenceNo } from './queueService';
+import { findReferredOfficeById } from './lookupService';
+import { sendConsultationSummary } from './emailService';
 
 export async function createIntake(body: IntakeBody): Promise<Client> {
   const { queueNumber, transactionDate } = await nextQueueSlot();
@@ -165,7 +167,28 @@ export async function saveConsultation(
     WHERE client_id = ${clientId} AND assigned_lawyer_id = ${lawyerId}
     RETURNING *
   `;
-  return { client: rows[0] as Client };
+  const client = rows[0] as Client;
+
+  if (newStatus === 'completed' && client.email && client.legal_advice) {
+    const referredOffice = client.referred_office_id
+      ? await findReferredOfficeById(client.referred_office_id)
+      : null;
+
+    sendConsultationSummary({
+      toEmail: client.email,
+      firstName: client.first_name,
+      lastName: client.last_name,
+      referenceNo: client.reference_no,
+      transactionDate: client.transaction_date,
+      legalAdvice: client.legal_advice,
+      referredOfficeName: referredOffice?.office_name ?? null,
+      referredReason: client.referred_reason,
+    })
+      .then(() => markEmailSent(client.client_id))
+      .catch((err) => console.error('[email] Failed to send consultation summary:', err));
+  }
+
+  return { client };
 }
 
 export async function removeFromQueue(
@@ -487,4 +510,8 @@ export async function listCompletedByLawyer(
 export async function findForReferral(clientId: number): Promise<Client | null> {
   const rows = await sql`SELECT * FROM clients WHERE client_id = ${clientId}`;
   return (rows[0] as Client) ?? null;
+}
+
+export async function markEmailSent(clientId: number): Promise<void> {
+  await sql`UPDATE clients SET email_sent_at = NOW() WHERE client_id = ${clientId}`;
 }

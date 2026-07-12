@@ -8,18 +8,18 @@ import * as AuthService from '../services/authService';
 import { signAccessToken, signTempToken, verifyTempToken } from '../utils/jwt';
 import { PublicUser } from '../types/user';
 
-function toPublicUser(user: Awaited<ReturnType<typeof AuthService.findByUsername>>): PublicUser {
+function toPublicUser(user: Awaited<ReturnType<typeof AuthService.findByEmail>>): PublicUser {
   const { password_hash, totp_secret, ...publicUser } = user!;
   return publicUser;
 }
 
 export async function login(req: Request, res: Response) {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ message: 'Username and password are required' });
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' });
   }
 
-  const user = await AuthService.findByUsername(username);
+  const user = await AuthService.findByEmail(email);
   if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
   const valid = await bcrypt.compare(password, user.password_hash);
@@ -27,13 +27,52 @@ export async function login(req: Request, res: Response) {
 
   const tempToken = signTempToken(user.user_id);
 
-  // 2FA is mandatory for every account. A password alone never grants access:
-  // accounts with TOTP already enabled must verify a code; accounts without it
-  // yet (e.g. fresh from admin creation) are routed through forced setup.
+  // A forced password change takes precedence — the user sets a new password,
+  // then continues into 2FA (setup or verify) from that step.
+  if (user.must_change_password) {
+    return res.json({ requiresPasswordChange: true, tempToken });
+  }
   if (user.totp_enabled) {
     return res.json({ requiresTOTP: true, tempToken });
   }
   return res.json({ requiresTOTPSetup: true, tempToken });
+}
+
+// Pre-auth forced password change, gated by the tempToken from /login. Clears the
+// must_change_password flag, then hands off to the 2FA step the account needs.
+export async function changePasswordForced(req: Request, res: Response) {
+  const { tempToken, new_password } = req.body;
+  if (!tempToken || !new_password) {
+    return res.status(400).json({ message: 'tempToken and new_password are required' });
+  }
+  if (new_password.length < 12) {
+    return res.status(400).json({ message: 'New password must be at least 12 characters' });
+  }
+
+  let payload;
+  try {
+    payload = verifyTempToken(tempToken);
+  } catch {
+    return res.status(401).json({ message: 'Session expired, please log in again' });
+  }
+
+  const user = await AuthService.findById(payload.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  const sameAsOld = await bcrypt.compare(new_password, user.password_hash);
+  if (sameAsOld) {
+    return res.status(400).json({ message: 'New password must be different from the temporary password' });
+  }
+
+  const hash = await bcrypt.hash(new_password, 12);
+  await AuthService.changePassword(user.user_id, hash);
+
+  // Fresh temp token so the follow-on 2FA step gets a full window.
+  const nextTempToken = signTempToken(user.user_id);
+  if (user.totp_enabled) {
+    return res.json({ requiresTOTP: true, tempToken: nextTempToken });
+  }
+  return res.json({ requiresTOTPSetup: true, tempToken: nextTempToken });
 }
 
 export async function verifyTotp(req: Request, res: Response) {
@@ -66,8 +105,6 @@ export async function verifyTotp(req: Request, res: Response) {
   res.json({ token, user: toPublicUser(user) });
 }
 
-// Forced first-login setup — authenticated by tempToken (password already
-// verified in /login), not a full access token, since the user has none yet.
 export async function setupInitPending(req: Request, res: Response) {
   const { tempToken } = req.body;
   if (!tempToken) return res.status(400).json({ message: 'tempToken is required' });
@@ -83,7 +120,7 @@ export async function setupInitPending(req: Request, res: Response) {
   if (!user) return res.status(404).json({ message: 'User not found' });
   if (user.totp_enabled) return res.status(400).json({ message: '2FA already enabled' });
 
-  const secret = speakeasy.generateSecret({ name: `PACU System (${user.username})`, length: 20 });
+  const secret = speakeasy.generateSecret({ name: `PACU System (${user.email})`, length: 20 });
   await AuthService.setTotpSecret(user.user_id, secret.base32);
 
   const qrCode = await QRCode.toDataURL(secret.otpauth_url!);
@@ -122,7 +159,7 @@ export async function setupTotp(req: AuthRequest, res: Response) {
   if (!user) return res.status(404).json({ message: 'User not found' });
   if (user.totp_enabled) return res.status(400).json({ message: '2FA already enabled' });
 
-  const secret = speakeasy.generateSecret({ name: `PACU System (${user.username})`, length: 20 });
+  const secret = speakeasy.generateSecret({ name: `PACU System (${user.email})`, length: 20 });
   await AuthService.setTotpSecret(user.user_id, secret.base32);
 
   const qrCode = await QRCode.toDataURL(secret.otpauth_url!);
@@ -164,10 +201,6 @@ export async function me(req: AuthRequest, res: Response) {
   res.json(toPublicUser(user));
 }
 
-// Sliding session: called by the frontend while the user is active, so an
-// in-progress task isn't interrupted by the access token's fixed expiry.
-// Requires a still-valid access token — an already-expired token means the
-// user must log in again rather than being silently re-issued one.
 export async function changePassword(req: AuthRequest, res: Response) {
   const { current_password, new_password } = req.body;
   if (!current_password || !new_password) {

@@ -9,8 +9,8 @@ function fmtDate(d: string): string {
   return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-const DROPDOWN_MENU_WIDTH = 160;
-const DROPDOWN_MENU_HEIGHT = 44; // single-item menu
+const DROPDOWN_MENU_WIDTH = 180;
+const DROPDOWN_MENU_HEIGHT = 88; // two-item menu
 
 // Three-dot action dropdown — one rendered at a time via shared open state.
 // Rendered through a portal into document.body and positioned with `fixed`
@@ -21,9 +21,10 @@ interface ActionsDropdownProps {
   onToggle: () => void;
   onClose: () => void;
   onView: () => void;
+  onSendEmail: () => void;
 }
 
-function ActionsDropdown({ isOpen, onToggle, onClose, onView }: ActionsDropdownProps) {
+function ActionsDropdown({ isOpen, onToggle, onClose, onView, onSendEmail }: ActionsDropdownProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -94,6 +95,16 @@ function ActionsDropdown({ isOpen, onToggle, onClose, onView }: ActionsDropdownP
                 View Transaction
               </button>
             </li>
+            <li>
+              <button
+                type="button"
+                className="dropdown-item d-flex align-items-center gap-2"
+                onClick={() => { onClose(); onSendEmail(); }}
+              >
+                <i className="bi bi-envelope" />
+                Send Summary Email
+              </button>
+            </li>
           </ul>,
           document.body
         )}
@@ -149,6 +160,90 @@ export default function TransactionHistoryPage() {
 
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [viewing, setViewing] = useState<CompletedTransaction | null>(null);
+
+  async function handleSendEmail(row: CompletedTransaction) {
+    if (!row.email) {
+      Swal.fire({
+        icon: 'info',
+        title: 'No email address',
+        text: 'This client did not provide an email address.',
+      });
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      title: 'Send consultation summary?',
+      html: `An email with the legal advice will be sent to <strong>${row.email}</strong>.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Send',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: 'var(--pacu-accent)',
+    });
+    if (!confirm.isConfirmed) return;
+
+    // Cycling filler phrases keep the overlay lively while the request is in flight.
+    const phrases = [
+      'Filling up the template…',
+      'Preparing the consultation summary…',
+      'Attaching the legal advice…',
+      'Contacting the mail server…',
+      `Sending to ${row.email}…`,
+    ];
+    let phraseIdx = 0;
+    let phraseTimer: ReturnType<typeof setInterval> | undefined;
+    // Firing the toast while the loading modal is open updates it in place rather
+    // than closing it, so willClose never fires. Stop the cycling explicitly before
+    // the toast, otherwise the filler phrases overwrite the "Email sent" title.
+    const stopPhrases = () => {
+      if (phraseTimer) { clearInterval(phraseTimer); phraseTimer = undefined; }
+    };
+
+    Swal.fire({
+      title: phrases[0],
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+        phraseTimer = setInterval(() => {
+          // Advance through the phrases once, then hold on the last
+          // ("Sending to …") until the toast pops — never loop back.
+          if (phraseIdx >= phrases.length - 1) {
+            stopPhrases();
+            return;
+          }
+          phraseIdx += 1;
+          const titleEl = Swal.getTitle();
+          if (titleEl) titleEl.textContent = phrases[phraseIdx];
+        }, 900);
+      },
+      willClose: stopPhrases,
+    });
+
+    // Keep the overlay up long enough for the phrases to read as real work,
+    // even when Resend responds almost instantly.
+    const minDisplay = new Promise((resolve) => setTimeout(resolve, 2500));
+
+    try {
+      const [result] = await Promise.all([clientService.sendEmail(row.client_id), minDisplay]);
+      stopPhrases();
+      setRows((prev) =>
+        prev.map((r) => r.client_id === row.client_id ? { ...r, email_sent_at: result.email_sent_at } : r)
+      );
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Email sent',
+        showConfirmButton: false,
+        timer: 3000,
+      });
+    } catch (err) {
+      stopPhrases();
+      Swal.fire({ icon: 'error', title: 'Failed to send email', text: err instanceof Error ? err.message : 'Please try again' });
+    }
+  }
 
   async function handleSearch() {
     setLoading(true);
@@ -265,6 +360,7 @@ export default function TransactionHistoryPage() {
                   <th>Client Name</th>
                   <th>Company</th>
                   <th>Issues</th>
+                  <th>Email</th>
                   <th className="text-end pe-4">Actions</th>
                 </tr>
               </thead>
@@ -304,12 +400,28 @@ export default function TransactionHistoryPage() {
                         <span style={{ opacity: 0.4 }}>—</span>
                       )}
                     </td>
+                    <td>
+                      {!row.email ? (
+                        <span className="text-muted" style={{ opacity: 0.35 }} title="No email on file">
+                          <i className="bi bi-envelope-slash" />
+                        </span>
+                      ) : row.email_sent_at ? (
+                        <span className="text-success" title={`Sent ${fmtDate(row.email_sent_at)}`}>
+                          <i className="bi bi-envelope-check-fill" />
+                        </span>
+                      ) : (
+                        <span className="text-muted" title="Not yet sent">
+                          <i className="bi bi-envelope" />
+                        </span>
+                      )}
+                    </td>
                     <td className="text-end pe-4" style={{ position: 'relative' }}>
                       <ActionsDropdown
                         isOpen={openDropdownId === row.client_id}
                         onToggle={() => setOpenDropdownId((prev) => (prev === row.client_id ? null : row.client_id))}
                         onClose={() => setOpenDropdownId(null)}
                         onView={() => setViewing(row)}
+                        onSendEmail={() => handleSendEmail(row)}
                       />
                     </td>
                   </tr>

@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth';
 import * as ClientService from '../services/clientService';
 import * as LookupService from '../services/lookupService';
 import { buildReferralPdf } from '../services/referralPdfService';
+import { sendConsultationSummary } from '../services/emailService';
 import { ConsultationBody, HistoryFilters, IntakeBody, ClientSex, PendingComplaintType } from '../types/client';
 import { SubmitFeedbackBody } from '../types/feedback';
 
@@ -273,6 +274,49 @@ export async function listHistory(req: AuthRequest, res: Response) {
   };
   const history = await ClientService.listCompletedByLawyer(req.user!.id, filters);
   res.json(history);
+}
+
+export async function sendEmail(req: AuthRequest, res: Response) {
+  const clientId = Number(req.params.id);
+  if (!Number.isInteger(clientId)) {
+    return res.status(400).json({ message: 'Invalid client id' });
+  }
+
+  const client = await ClientService.findForReferral(clientId);
+  if (!client) return res.status(404).json({ message: 'Client not found' });
+
+  if (client.assigned_lawyer_id !== req.user!.id) {
+    return res.status(403).json({ message: 'You can only send emails for your own clients' });
+  }
+  if (client.status !== 'completed') {
+    return res.status(409).json({ message: 'Transaction is not completed' });
+  }
+  if (!client.email) {
+    return res.status(409).json({ message: 'Client has no email address on file' });
+  }
+  if (!client.legal_advice) {
+    return res.status(409).json({ message: 'No legal advice recorded for this transaction' });
+  }
+
+  const referredOffice = client.referred_office_id
+    ? await LookupService.findReferredOfficeById(client.referred_office_id)
+    : null;
+
+  await sendConsultationSummary({
+    toEmail: client.email,
+    firstName: client.first_name,
+    lastName: client.last_name,
+    referenceNo: client.reference_no,
+    transactionDate: client.transaction_date,
+    legalAdvice: client.legal_advice,
+    referredOfficeName: referredOffice?.office_name ?? null,
+    referredReason: client.referred_reason,
+  });
+
+  await ClientService.markEmailSent(clientId);
+  const sentAt = new Date().toISOString();
+
+  res.json({ message: 'Email sent successfully', email_sent_at: sentAt });
 }
 
 // Referral PDF — admin can access any client's; a lawyer only their own.

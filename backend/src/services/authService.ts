@@ -1,9 +1,9 @@
 import sql from '../db';
 import { User } from '../types/user';
 
-export async function findByUsername(username: string): Promise<User | null> {
+export async function findByEmail(email: string): Promise<User | null> {
   const rows = await sql`
-    SELECT * FROM users WHERE username = ${username.toLowerCase()} AND is_active = TRUE
+    SELECT * FROM users WHERE email = ${email.toLowerCase()} AND is_active = TRUE
   `;
   return (rows[0] as User) ?? null;
 }
@@ -26,5 +26,9 @@ export async function disableTotp(userId: number): Promise<void> {
 }
 
 export async function changePassword(userId: number, newPasswordHash: string): Promise<void> {
-  await sql`UPDATE users SET password_hash = ${newPasswordHash} WHERE user_id = ${userId}`;
+  await sql`
+    UPDATE users
+    SET password_hash = ${newPasswordHash}, must_change_password = FALSE
+    WHERE user_id = ${userId}
+  `;
 }

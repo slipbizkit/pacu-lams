@@ -18,7 +18,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', group: 'home' },
-  { to: '/queue', label: 'Queue', icon: 'bi-people', roles: ['personnel', 'lawyer', 'admin', 'support_staff'], group: 'ongoing' },
+  { to: '/queue', label: 'Queue', icon: 'bi-people', roles: ['personnel', 'lawyer', 'support_staff'], group: 'ongoing' },
   { to: '/clients', label: 'My Clients', icon: 'bi-person-lines-fill', roles: ['lawyer'], group: 'ongoing' },
   { to: '/history', label: 'Completed Transactions', icon: 'bi-clock-history', roles: ['lawyer'], group: 'history' },
   { to: '/cancelled', label: 'Cancelled Transactions', icon: 'bi-x-circle', roles: ['lawyer'], group: 'history' },

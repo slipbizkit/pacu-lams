@@ -1,10 +1,12 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import * as UserService from '../services/userService';
-import { CreateUserBody, UpdateUserBody, UserRole } from '../types/user';
+import { sendPasswordReset } from '../services/emailService';
+import { CreateUserBody, UpdateUserBody, UserRole, UserSex } from '../types/user';
 
 const ROLE_VALUES: UserRole[] = ['admin', 'lawyer', 'personnel'];
-const USERNAME_PATTERN = /^[a-z0-9._-]{3,50}$/;
+const SEX_VALUES: UserSex[] = ['male', 'female'];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function listLawyers(_req: AuthRequest, res: Response) {
   const lawyers = await UserService.listActiveLawyers();
@@ -19,23 +21,29 @@ export async function listUsers(_req: AuthRequest, res: Response) {
 export async function createUser(req: AuthRequest, res: Response) {
   const body = req.body as CreateUserBody;
 
-  if (!body.username?.trim() || !body.first_name?.trim() || !body.last_name?.trim()) {
-    return res.status(400).json({ message: 'Username, first name, and last name are required' });
+  if (!body.email?.trim()) {
+    return res.status(400).json({ message: 'Email address is required' });
   }
-  const username = body.username.trim().toLowerCase();
-  if (!USERNAME_PATTERN.test(username)) {
-    return res.status(400).json({ message: 'Username must be 3-50 characters: lowercase letters, numbers, dots, underscores, hyphens' });
+  const email = body.email.trim().toLowerCase();
+  if (!EMAIL_PATTERN.test(email)) {
+    return res.status(400).json({ message: 'Invalid email address' });
+  }
+  if (!body.first_name?.trim() || !body.last_name?.trim()) {
+    return res.status(400).json({ message: 'First name and last name are required' });
   }
   if (!body.role || !ROLE_VALUES.includes(body.role)) {
     return res.status(400).json({ message: 'A valid role is required' });
   }
-  if (await UserService.findByUsernameExists(username)) {
-    return res.status(409).json({ message: 'Username is already taken' });
+  if (body.sex && !SEX_VALUES.includes(body.sex)) {
+    return res.status(400).json({ message: 'Invalid sex value' });
+  }
+  if (await UserService.findByEmailExists(email)) {
+    return res.status(409).json({ message: 'An account with this email already exists' });
   }
 
   const { user, tempPassword } = await UserService.createUser({
     ...body,
-    username,
+    email,
     first_name: body.first_name.trim(),
     last_name: body.last_name.trim(),
   });
@@ -50,6 +58,13 @@ export async function updateUser(req: AuthRequest, res: Response) {
   if (body.role && !ROLE_VALUES.includes(body.role)) {
     return res.status(400).json({ message: 'Invalid role' });
   }
+  if (body.email) {
+    const email = body.email.trim().toLowerCase();
+    if (!EMAIL_PATTERN.test(email)) {
+      return res.status(400).json({ message: 'Invalid email address' });
+    }
+    body.email = email;
+  }
 
   const user = await UserService.updateUser(userId, body);
   if (!user) return res.status(404).json({ message: 'User not found' });
@@ -61,4 +76,33 @@ export async function resetTotp(req: AuthRequest, res: Response) {
   const user = await UserService.resetTotp(userId);
   if (!user) return res.status(404).json({ message: 'User not found' });
   res.json(user);
+}
+
+export async function resetPassword(req: AuthRequest, res: Response) {
+  const userId = Number(req.params.id);
+  if (!Number.isInteger(userId)) {
+    return res.status(400).json({ message: 'Invalid user id' });
+  }
+
+  const result = await UserService.resetPassword(userId);
+  if (!result) return res.status(404).json({ message: 'User not found' });
+
+  const { user, tempPassword } = result;
+
+  // The reset is already persisted; if the email fails we still return success so
+  // the admin can relay the temporary password shown on screen.
+  let emailSent = false;
+  try {
+    await sendPasswordReset({
+      toEmail: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      tempPassword,
+    });
+    emailSent = true;
+  } catch {
+    emailSent = false;
+  }
+
+  res.json({ user, tempPassword, emailSent });
 }

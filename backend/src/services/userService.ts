@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import sql from '../db';
-import { CreateUserBody, PublicUser, UpdateUserBody } from '../types/user';
+import { CreateUserBody, PublicUser, UpdateUserBody, UserSex } from '../types/user';
 import { generateTempPassword } from '../utils/password';
 
 export interface LawyerOption {
@@ -21,16 +21,16 @@ export async function listActiveLawyers(): Promise<LawyerOption[]> {
 
 export async function listAllUsers(): Promise<PublicUser[]> {
   const rows = await sql`
-    SELECT user_id, username, first_name, middle_name, last_name, position, role,
-           totp_enabled, is_active, created_at, updated_at
+    SELECT user_id, first_name, middle_name, last_name, position, email, sex, role,
+           totp_enabled, must_change_password, is_active, created_at, updated_at
     FROM users
     ORDER BY last_name, first_name
   `;
   return rows as PublicUser[];
 }
 
-export async function findByUsernameExists(username: string): Promise<boolean> {
-  const rows = await sql`SELECT user_id FROM users WHERE username = ${username.toLowerCase()}`;
+export async function findByEmailExists(email: string): Promise<boolean> {
+  const rows = await sql`SELECT user_id FROM users WHERE email = ${email.toLowerCase()}`;
   return rows.length > 0;
 }
 
@@ -39,13 +39,13 @@ export async function createUser(body: CreateUserBody): Promise<{ user: PublicUs
   const hash = await bcrypt.hash(tempPassword, 12);
 
   const rows = await sql`
-    INSERT INTO users (username, password_hash, first_name, middle_name, last_name, position, role)
+    INSERT INTO users (first_name, middle_name, last_name, position, email, sex, role, password_hash)
     VALUES (
-      ${body.username.toLowerCase()}, ${hash}, ${body.first_name}, ${body.middle_name ?? null},
-      ${body.last_name}, ${body.position ?? null}, ${body.role}
+      ${body.first_name}, ${body.middle_name ?? null}, ${body.last_name},
+      ${body.position ?? null}, ${body.email.toLowerCase()}, ${body.sex ?? null}, ${body.role}, ${hash}
     )
-    RETURNING user_id, username, first_name, middle_name, last_name, position, role,
-              totp_enabled, is_active, created_at, updated_at
+    RETURNING user_id, first_name, middle_name, last_name, position, email, sex, role,
+              totp_enabled, must_change_password, is_active, created_at, updated_at
   `;
   return { user: rows[0] as PublicUser, tempPassword };
 }
@@ -57,11 +57,13 @@ export async function updateUser(userId: number, body: UpdateUserBody): Promise<
         middle_name = COALESCE(${body.middle_name ?? null}, middle_name),
         last_name = COALESCE(${body.last_name ?? null}, last_name),
         position = COALESCE(${body.position ?? null}, position),
+        email = COALESCE(${body.email ? body.email.toLowerCase() : null}, email),
+        sex = COALESCE(${(body.sex as UserSex) ?? null}, sex),
         role = COALESCE(${body.role ?? null}, role),
         is_active = COALESCE(${body.is_active ?? null}, is_active)
     WHERE user_id = ${userId}
-    RETURNING user_id, username, first_name, middle_name, last_name, position, role,
-              totp_enabled, is_active, created_at, updated_at
+    RETURNING user_id, first_name, middle_name, last_name, position, email, sex, role,
+              totp_enabled, must_change_password, is_active, created_at, updated_at
   `;
   return (rows[0] as PublicUser) ?? null;
 }
@@ -71,8 +73,29 @@ export async function resetTotp(userId: number): Promise<PublicUser | null> {
     UPDATE users
     SET totp_enabled = FALSE, totp_secret = NULL
     WHERE user_id = ${userId}
-    RETURNING user_id, username, first_name, middle_name, last_name, position, role,
-              totp_enabled, is_active, created_at, updated_at
+    RETURNING user_id, first_name, middle_name, last_name, position, email, sex, role,
+              totp_enabled, must_change_password, is_active, created_at, updated_at
   `;
   return (rows[0] as PublicUser) ?? null;
+}
+
+// Admin-triggered reset: issue a fresh temp password, force a change on next login,
+// and clear 2FA so the user re-enrolls. Returns the temp password to email/display.
+export async function resetPassword(userId: number): Promise<{ user: PublicUser; tempPassword: string } | null> {
+  const tempPassword = generateTempPassword();
+  const hash = await bcrypt.hash(tempPassword, 12);
+
+  const rows = await sql`
+    UPDATE users
+    SET password_hash = ${hash},
+        must_change_password = TRUE,
+        totp_enabled = FALSE,
+        totp_secret = NULL
+    WHERE user_id = ${userId}
+    RETURNING user_id, first_name, middle_name, last_name, position, email, sex, role,
+              totp_enabled, must_change_password, is_active, created_at, updated_at
+  `;
+  const user = rows[0] as PublicUser | undefined;
+  if (!user) return null;
+  return { user, tempPassword };
 }

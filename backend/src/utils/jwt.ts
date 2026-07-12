@@ -3,8 +3,8 @@ import { AccessTokenPayload, TempTokenPayload, User } from '../types/user';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-export function signAccessToken(user: Pick<User, 'user_id' | 'username' | 'role'>): string {
-  const payload = { id: user.user_id, username: user.username, role: user.role };
+export function signAccessToken(user: Pick<User, 'user_id' | 'email' | 'role'>): string {
+  const payload = { id: user.user_id, email: user.email, role: user.role };
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '60m' });
 }
 

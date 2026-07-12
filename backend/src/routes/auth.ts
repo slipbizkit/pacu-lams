@@ -9,6 +9,9 @@ const router = Router();
 router.post('/login', loginLimiter, asyncHandler(AuthController.login));
 router.post('/verify-totp', loginLimiter, asyncHandler(AuthController.verifyTotp));
 
+// Forced first-login password change (pre-auth, gated by tempToken from /login)
+router.post('/change-password-forced', loginLimiter, asyncHandler(AuthController.changePasswordForced));
+
 // Forced first-login 2FA setup (pre-auth, gated by tempToken from /login)
 router.post('/totp/setup-init', loginLimiter, asyncHandler(AuthController.setupInitPending));
 router.post('/totp/setup-confirm', loginLimiter, asyncHandler(AuthController.setupConfirmPending));

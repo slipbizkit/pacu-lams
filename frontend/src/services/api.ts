@@ -1,4 +1,4 @@
-import type { CreateUserBody, CreateUserResult, LoginResponse, TotpSetupResponse, UpdateUserBody, User } from '../types/user';
+import type { CreateUserBody, CreateUserResult, LoginResponse, ResetPasswordResult, TotpSetupResponse, UpdateUserBody, User } from '../types/user';
 import type {
   CityMunicipality,
   Client,
@@ -82,10 +82,10 @@ function toQueryString(params: object): string {
 }
 
 export const authService = {
-  login: (username: string, password: string) =>
+  login: (email: string, password: string) =>
     apiFetch<LoginResponse>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ email, password }),
     }),
   verifyTotp: (tempToken: string, code: string) =>
     apiFetch<LoginResponse>('/auth/verify-totp', {
@@ -101,6 +101,11 @@ export const authService = {
     apiFetch<LoginResponse>('/auth/totp/setup-confirm', {
       method: 'POST',
       body: JSON.stringify({ tempToken, code }),
+    }),
+  changePasswordForced: (tempToken: string, newPassword: string) =>
+    apiFetch<LoginResponse>('/auth/change-password-forced', {
+      method: 'POST',
+      body: JSON.stringify({ tempToken, new_password: newPassword }),
     }),
   me: () => apiFetch<User>('/auth/me'),
   refresh: () => apiFetch<{ token: string }>('/auth/refresh', { method: 'POST' }),
@@ -145,6 +150,8 @@ export const clientService = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  sendEmail: (clientId: number) =>
+    apiFetch<{ message: string; email_sent_at: string }>(`/clients/${clientId}/send-email`, { method: 'POST' }),
   downloadReferralPdf: (clientId: number, referenceNo: string) =>
     apiDownload(`/clients/${clientId}/referral.pdf`, `referral-${referenceNo}.pdf`),
   listHistory: (filters?: HistoryFilters) =>
@@ -175,6 +182,8 @@ export const userService = {
     apiFetch<User>(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify(body) }),
   resetTotp: (userId: number) =>
     apiFetch<User>(`/users/${userId}/reset-totp`, { method: 'POST' }),
+  resetPassword: (userId: number) =>
+    apiFetch<ResetPasswordResult>(`/users/${userId}/reset-password`, { method: 'POST' }),
 };
 
 export const lookupService = {

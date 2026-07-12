@@ -58,6 +58,8 @@ export interface Client {
   feedback_rating: number | null;
   feedback_comments: string | null;
 
+  email_sent_at: string | null;
+
   status: ClientStatus;
   cancellation_reason: string | null;
 

@@ -6,8 +6,18 @@ import { useAuth } from '../context/AuthContext';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { OtpInput } from '../components/OtpInput';
 
-type Step = 'credentials' | 'totp' | 'totp-setup';
+type Step = 'credentials' | 'password-change' | 'totp' | 'totp-setup';
 type Direction = 'forward' | 'back';
+
+const MIN_PASSWORD_LENGTH = 12;
+
+const PASSWORD_RULES = [
+  { label: 'At least 12 characters', test: (v: string) => v.length >= MIN_PASSWORD_LENGTH },
+  { label: 'Contains uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
+  { label: 'Contains lowercase letter', test: (v: string) => /[a-z]/.test(v) },
+  { label: 'Contains number', test: (v: string) => /[0-9]/.test(v) },
+  { label: 'Contains symbol', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
+];
 
 const FEATURES = [
   { icon: 'bi-people', label: 'Queue & assistance form' },
@@ -15,14 +25,18 @@ const FEATURES = [
   { icon: 'bi-signpost-2', label: 'Referrals & reports' },
 ];
 
-const GENERIC_CREDENTIALS_ERROR = 'Invalid username or password.';
+const GENERIC_CREDENTIALS_ERROR = 'Invalid email or password.';
 const GENERIC_TOTP_ERROR = 'Invalid verification code.';
 
 export default function LoginPage() {
   const [step, setStep] = useState<Step>('credentials');
   const [direction, setDirection] = useState<Direction>('forward');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+  const [showPasswordChecklist, setShowPasswordChecklist] = useState(false);
   const [code, setCode] = useState('');
   const [tempToken, setTempToken] = useState('');
   const [qrCode, setQrCode] = useState('');
@@ -50,28 +64,66 @@ export default function LoginPage() {
     setStep(nextStep);
   }
 
+  // Route the pre-auth response into the correct next step. Shared by the credentials
+  // form and the forced password-change form (which also returns a 2FA hand-off).
+  async function routeAfterAuthStep(data: Awaited<ReturnType<typeof authService.login>>) {
+    if (data.requiresPasswordChange && data.tempToken) {
+      setTempToken(data.tempToken);
+      goTo('password-change', 'forward');
+    } else if (data.requiresTOTP && data.tempToken) {
+      setTempToken(data.tempToken);
+      setOtpFocusSignal((n) => n + 1);
+      goTo('totp', 'forward');
+    } else if (data.requiresTOTPSetup && data.tempToken) {
+      setTempToken(data.tempToken);
+      goTo('totp-setup', 'forward');
+    } else if (data.token) {
+      await finishLogin(data.token);
+    }
+  }
+
   async function handleCredentials(e: React.FormEvent) {
     e.preventDefault();
     setCredentialsError('');
     setLoading(true);
     try {
-      const data = await authService.login(username, password);
-      if (data.requiresTOTP && data.tempToken) {
-        setTempToken(data.tempToken);
-        setOtpFocusSignal((n) => n + 1);
-        goTo('totp', 'forward');
-      } else if (data.requiresTOTPSetup && data.tempToken) {
-        setTempToken(data.tempToken);
-        goTo('totp-setup', 'forward');
-      } else if (data.token) {
-        await finishLogin(data.token);
-      }
+      const data = await authService.login(email, password);
+      await routeAfterAuthStep(data);
     } catch {
       // Generic message regardless of backend detail — never reveal whether the username exists.
       setCredentialsError(GENERIC_CREDENTIALS_ERROR);
       setPassword('');
       fireShake();
       requestAnimationFrame(() => passwordRef.current?.focus());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordChangeError('');
+    const allRulesMet = PASSWORD_RULES.every((r) => r.test(newPassword));
+    if (!allRulesMet) {
+      setShowPasswordChecklist(true);
+      setPasswordChangeError('Please meet all password requirements.');
+      fireShake();
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordChangeError('Passwords do not match.');
+      fireShake();
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await authService.changePasswordForced(tempToken, newPassword);
+      setNewPassword('');
+      setConfirmPassword('');
+      await routeAfterAuthStep(data);
+    } catch (err) {
+      setPasswordChangeError(err instanceof Error ? err.message : 'Could not change password.');
+      fireShake();
     } finally {
       setLoading(false);
     }
@@ -147,13 +199,18 @@ export default function LoginPage() {
   }
 
   const stepTitle =
-    step === 'totp-setup' ? 'Set up two-factor authentication' : step === 'totp' ? 'Verify it\'s you' : 'Welcome back';
+    step === 'totp-setup' ? 'Set up two-factor authentication'
+      : step === 'totp' ? 'Verify it\'s you'
+      : step === 'password-change' ? 'Set a new password'
+      : 'Welcome back';
   const stepSubtitle =
     step === 'totp-setup'
       ? 'Required before your first login can continue.'
       : step === 'totp'
         ? 'Enter the 6-digit code from your authenticator app.'
-        : 'Sign in with the account provided by your administrator.';
+        : step === 'password-change'
+          ? 'Choose a new password to replace the temporary one.'
+          : 'Sign in with the account provided by your administrator.';
 
   return (
     <div className="pacu-auth-shell">
@@ -242,17 +299,18 @@ export default function LoginPage() {
                 {step === 'credentials' && (
                   <form onSubmit={handleCredentials} noValidate>
                     <div className="mb-3 pacu-auth-field">
-                      <label className="form-label" htmlFor="auth-username">
-                        Username
+                      <label className="form-label" htmlFor="auth-email">
+                        Email address
                       </label>
                       <input
-                        id="auth-username"
+                        id="auth-email"
+                        type="email"
                         className="form-control"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                         autoFocus
-                        autoComplete="username"
+                        autoComplete="email"
                         disabled={loading}
                       />
                     </div>
@@ -283,6 +341,69 @@ export default function LoginPage() {
                     <button className="btn btn-primary w-100 mt-3" type="submit" disabled={loading}>
                       {loading ? <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" /> : null}
                       Sign In
+                    </button>
+                  </form>
+                )}
+
+                {step === 'password-change' && (
+                  <form onSubmit={handlePasswordChange} noValidate>
+                    <div className="mb-3 pacu-auth-field">
+                      <label className="form-label" htmlFor="auth-new-password">
+                        New password
+                      </label>
+                      <input
+                        id="auth-new-password"
+                        type="password"
+                        className="form-control"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        onFocus={() => setShowPasswordChecklist(true)}
+                        required
+                        autoFocus
+                        autoComplete="new-password"
+                        disabled={loading}
+                        aria-invalid={!!passwordChangeError}
+                      />
+                      {showPasswordChecklist && (
+                        <ul className="list-unstyled mt-2 mb-0" style={{ fontSize: '0.8rem' }}>
+                          {PASSWORD_RULES.map((rule) => {
+                            const met = rule.test(newPassword);
+                            return (
+                              <li key={rule.label} style={{ color: met ? 'var(--bs-success)' : 'var(--bs-danger)' }}>
+                                <i className={`bi ${met ? 'bi-check-circle-fill' : 'bi-x-circle-fill'} me-1`} />
+                                {rule.label}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                    <div className={`mb-2 pacu-auth-field${passwordChangeError ? ' is-error' : ''}`}>
+                      <label className="form-label" htmlFor="auth-confirm-password">
+                        Confirm new password
+                      </label>
+                      <input
+                        id="auth-confirm-password"
+                        type="password"
+                        className="form-control"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        autoComplete="new-password"
+                        disabled={loading}
+                        aria-invalid={!!passwordChangeError}
+                        aria-describedby={passwordChangeError ? 'auth-password-change-error' : undefined}
+                      />
+                    </div>
+                    {passwordChangeError && (
+                      <p id="auth-password-change-error" className="pacu-auth-error" role="alert">
+                        <i className="bi bi-exclamation-circle" />
+                        {passwordChangeError}
+                      </p>
+                    )}
+                    <button className="btn btn-primary w-100 mt-3" type="submit" disabled={loading}>
+                      {loading ? <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" /> : null}
+                      Set Password &amp; Continue
                     </button>
                   </form>
                 )}
