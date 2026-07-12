@@ -1,114 +1,135 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
-import { clientService, lookupService, reportService, userService } from '../services/api';
-import { SearchableSelect } from '../components/SearchableSelect';
-import type { CityMunicipality, IssueCategory, LawyerOption, ReferredOffice, ReportFilters, ReportRow } from '../types/client';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from 'recharts';
+import { reportService } from '../services/api';
+import type { CountItem, MonthlyReport } from '../types/client';
 
-const EMPTY_FILTERS: ReportFilters = {};
-
-const STATUS_OPTIONS = [
-  { value: 'waiting',     label: 'Waiting' },
-  { value: 'assigned',    label: 'Assigned' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'incomplete',  label: 'Incomplete' },
-  { value: 'completed',   label: 'Completed' },
-  { value: 'cancelled',   label: 'Cancelled' },
-];
-
-const STATUS_BADGE: Record<string, string> = {
-  waiting:     '',
-  assigned:    '',
-  in_progress: '',
-  incomplete:  'pacu-badge--warning',
-  completed:   'pacu-badge--success',
-  cancelled:   'pacu-badge--danger',
+const STATUS_LABELS: Record<string, string> = {
+  waiting:     'Waiting',
+  assigned:    'Assigned',
+  in_progress: 'In Progress',
+  incomplete:  'Incomplete',
+  completed:   'Completed',
+  cancelled:   'Cancelled',
 };
 
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+const STATUS_COLOR: Record<string, string> = {
+  waiting:     'var(--pacu-accent)',
+  assigned:    'var(--bs-info)',
+  in_progress: 'var(--bs-primary)',
+  incomplete:  'var(--bs-warning)',
+  completed:   'var(--bs-success)',
+  cancelled:   'var(--bs-danger)',
+};
+
+function currentMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+function cap(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ---------------------------------------------------------------------------
+// Reusable pieces
+// ---------------------------------------------------------------------------
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="pacu-eyebrow mb-2 mt-4" style={{ fontSize: '0.7rem' }}>{children}</p>;
+}
+
+function CountBarList({ items, empty, format }: { items: CountItem[]; empty: string; format?: (name: string) => string }) {
+  if (items.length === 0) {
+    return <p className="text-muted mb-0" style={{ fontSize: '0.82rem' }}>{empty}</p>;
+  }
+  const max = Math.max(...items.map((i) => i.count), 1);
+  return (
+    <div className="d-flex flex-column gap-2">
+      {items.map((it) => (
+        <div key={it.name}>
+          <div className="d-flex justify-content-between align-items-baseline mb-1" style={{ fontSize: '0.82rem' }}>
+            <span className="text-truncate pe-2" title={it.name}>{format ? format(it.name) : it.name}</span>
+            <span className="fw-semibold flex-shrink-0">{it.count}</span>
+          </div>
+          <div style={{ height: 6, borderRadius: 3, backgroundColor: 'var(--bs-border-color)' }}>
+            <div style={{ height: 6, borderRadius: 3, width: `${(it.count / max) * 100}%`, backgroundColor: 'var(--pacu-accent)' }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SummaryCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div className="card h-100">
+      <div className="card-body p-4">
+        <p className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>{title}</p>
+        {subtitle && <p className="text-muted mb-3" style={{ fontSize: '0.78rem' }}>{subtitle}</p>}
+        {!subtitle && <div className="mb-3" />}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function TrendChart({ data }: { data: MonthlyReport['trend'] }) {
+  const formatted = data.map((p) => ({
+    ...p,
+    short: new Date(Number(p.month.slice(0, 4)), Number(p.month.slice(5)) - 1, 1)
+      .toLocaleString('en-US', { month: 'short' }),
+  }));
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={formatted} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--bs-border-color)" />
+        <XAxis dataKey="short" tick={{ fontSize: 11, fill: 'var(--bs-secondary-color)' }} axisLine={false} tickLine={false} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--bs-secondary-color)' }} axisLine={false} tickLine={false} />
+        <Tooltip
+          contentStyle={{ backgroundColor: 'var(--bs-body-bg)', border: '1px solid var(--bs-border-color)', borderRadius: 8, fontSize: '0.82rem' }}
+          labelStyle={{ color: 'var(--bs-body-color)', fontWeight: 600 }}
+          itemStyle={{ color: 'var(--bs-body-color)' }}
+          cursor={{ fill: 'var(--bs-border-color)', opacity: 0.4 }}
+          labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ''}
+          formatter={(v) => [v as number, 'Transactions']}
+        />
+        <Bar dataKey="count" fill="#4f7ef7" radius={[4, 4, 0, 0]} name="Transactions" maxBarSize={48} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // AdminReportsPage
 // ---------------------------------------------------------------------------
 
 export default function AdminReportsPage() {
-  const [lawyers, setLawyers]       = useState<LawyerOption[]>([]);
-  const [categories, setCategories] = useState<IssueCategory[]>([]);
-  const [offices, setOffices]       = useState<ReferredOffice[]>([]);
-  const [cities, setCities]         = useState<CityMunicipality[]>([]);
-
-  const [filters, setFilters] = useState<ReportFilters>(EMPTY_FILTERS);
-  const [rows, setRows]       = useState<ReportRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [month, setMonth]     = useState<string>(currentMonth());
+  const [report, setReport]   = useState<MonthlyReport | null>(null);
+  const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<'xlsx' | 'pdf' | null>(null);
-  const [hasRun, setHasRun]   = useState(false);
-  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
-  const [cityId, setCityId] = useState<number | null>(null);
-
-  const [pageSize, setPageSize]       = useState(25);
-  const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    Promise.all([
-      userService.listLawyers(),
-      lookupService.issueCategories(),
-      lookupService.referredOffices(),
-      lookupService.citiesMunicipalities(),
-    ])
-      .then(([l, c, o, cm]) => { setLawyers(l); setCategories(c); setOffices(o); setCities(cm); })
-      .catch(() => {});
-  }, []);
-
-  const cityOptions = useMemo(() =>
-    [...cities]
-      .sort((a, b) => a.city_municipality.localeCompare(b.city_municipality))
-      .map((c) => ({ id: c.id, label: c.city_municipality })),
-  [cities]);
-
-  function handleCityChange(id: number | null) {
-    setCityId(id);
-    const name = cities.find((c) => c.id === id)?.city_municipality;
-    update('city', name || undefined);
-  }
-
-  function update<K extends keyof ReportFilters>(key: K, value: ReportFilters[K]) {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function runReport(e?: React.FormEvent) {
-    e?.preventDefault();
+  async function load(m: string) {
     setLoading(true);
     try {
-      const data = await reportService.run(filters);
-      setRows(data);
-      setHasRun(true);
-      setCurrentPage(1);
+      setReport(await reportService.getMonthly(m));
     } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Could not run report', text: err instanceof Error ? err.message : 'Please try again' });
+      Swal.fire({ icon: 'error', title: 'Could not load report', text: err instanceof Error ? err.message : 'Please try again' });
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleReferralDownload(row: ReportRow) {
-    setDownloadingId(row.client_id);
-    try {
-      await clientService.downloadReferralPdf(row.client_id, row.reference_no);
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Could not download referral form', text: err instanceof Error ? err.message : 'Please try again' });
-    } finally {
-      setDownloadingId(null);
-    }
-  }
+  useEffect(() => { load(month); }, [month]);
 
   async function handleExport(format: 'xlsx' | 'pdf') {
     setExporting(format);
     try {
-      if (format === 'xlsx') await reportService.exportExcel(filters);
-      else await reportService.exportPdf(filters);
+      if (format === 'xlsx') await reportService.exportExcel(month);
+      else await reportService.exportPdf(month);
     } catch (err) {
       Swal.fire({ icon: 'error', title: 'Export failed', text: err instanceof Error ? err.message : 'Please try again' });
     } finally {
@@ -116,245 +137,139 @@ export default function AdminReportsPage() {
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const startIdx   = (currentPage - 1) * pageSize;
-  const pageRows   = rows.slice(startIdx, startIdx + pageSize);
-
-  const pageNumbers = useMemo(() => {
-    const max = 5;
-    let start = Math.max(1, currentPage - Math.floor(max / 2));
-    const end = Math.min(totalPages, start + max - 1);
-    start = Math.max(1, end - max + 1);
-    const nums: number[] = [];
-    for (let i = start; i <= end; i++) nums.push(i);
-    return nums;
-  }, [currentPage, totalPages]);
-
-  const activeFilterCount = Object.values(filters).filter((v) => v !== undefined && v !== false && v !== '').length;
+  const isEmpty = report !== null && report.total === 0;
 
   return (
     <div>
-      <h1 className="pacu-display mb-1">Reports</h1>
+      <h1 className="pacu-display mb-1">Monthly Report</h1>
       <p className="text-muted mb-4" style={{ fontSize: '0.9rem' }}>
-        Filter transactions and export the results to Excel or PDF.
+        Accomplishments for a selected month — completed and cancelled transactions.
       </p>
 
-      {/* Filters */}
+      {/* Controls */}
       <div className="card mb-4">
-        <div className="card-body p-4">
-          <form onSubmit={runReport}>
-            <p className="pacu-eyebrow mb-3">Date &amp; Assignment</p>
-            <div className="row g-3 mb-4">
-              <div className="col-md-3">
-                <label className="form-label">Date from</label>
-                <input type="date" className="form-control" value={filters.date_from ?? ''} onChange={(e) => update('date_from', e.target.value || undefined)} />
-              </div>
-              <div className="col-md-3">
-                <label className="form-label">Date to</label>
-                <input type="date" className="form-control" value={filters.date_to ?? ''} onChange={(e) => update('date_to', e.target.value || undefined)} />
-              </div>
-              <div className="col-md-3">
-                <label className="form-label">Lawyer</label>
-                <select className="form-select" value={filters.lawyer_id ?? ''} onChange={(e) => update('lawyer_id', e.target.value ? Number(e.target.value) : undefined)}>
-                  <option value="">All lawyers</option>
-                  {lawyers.map((l) => <option key={l.user_id} value={l.user_id}>{l.first_name} {l.last_name}</option>)}
-                </select>
-              </div>
-              <div className="col-md-3">
-                <label className="form-label">Status</label>
-                <select className="form-select" value={filters.status ?? ''} onChange={(e) => update('status', e.target.value || undefined)}>
-                  <option value="">All statuses</option>
-                  {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <p className="pacu-eyebrow mb-3">Case Details</p>
-            <div className="row g-3 mb-4">
-              <div className="col-md-4">
-                <label className="form-label">Issue category</label>
-                <select className="form-select" value={filters.issue_category_id ?? ''} onChange={(e) => update('issue_category_id', e.target.value ? Number(e.target.value) : undefined)}>
-                  <option value="">All categories</option>
-                  {categories.map((c) => <option key={c.category_id} value={c.category_id}>{c.category_group} — {c.category_name}</option>)}
-                </select>
-              </div>
-              <div className="col-md-4">
-                <label className="form-label">Referral office</label>
-                <select className="form-select" value={filters.referred_office_id ?? ''} onChange={(e) => update('referred_office_id', e.target.value ? Number(e.target.value) : undefined)}>
-                  <option value="">All offices</option>
-                  {offices.map((o) => <option key={o.office_id} value={o.office_id}>{o.office_name}</option>)}
-                </select>
-              </div>
-              <div className="col-md-4 d-flex align-items-end pb-1">
-                <div className="form-check">
-                  <input className="form-check-input" type="checkbox" id="priorityOnly" checked={filters.priority_only ?? false} onChange={(e) => update('priority_only', e.target.checked || undefined)} />
-                  <label className="form-check-label" htmlFor="priorityOnly">Priority clients only</label>
-                </div>
-              </div>
-            </div>
-
-            <p className="pacu-eyebrow mb-3">Client Demographics</p>
-            <div className="row g-3 mb-4">
-              <div className="col-md-3">
-                <label className="form-label">Sex</label>
-                <select className="form-select" value={filters.sex ?? ''} onChange={(e) => update('sex', e.target.value || undefined)}>
-                  <option value="">All</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
-              </div>
-              <div className="col-md-3">
-                <label className="form-label">City / Municipality</label>
-                <SearchableSelect
-                  options={cityOptions}
-                  value={cityId}
-                  onChange={handleCityChange}
-                  placeholder="Search city or municipality…"
-                />
-              </div>
-            </div>
-
-            <div className="d-flex gap-2">
-              <button className="btn btn-primary" type="submit" disabled={loading}>
-                {loading ? <span className="spinner-border spinner-border-sm me-2" /> : <i className="bi bi-search me-2" />}
-                Run Report
-              </button>
-              {activeFilterCount > 0 && (
-                <button type="button" className="btn btn-outline-secondary" onClick={() => { setFilters(EMPTY_FILTERS); setCityId(null); }}>
-                  Clear Filters
-                  <span className="badge rounded-pill ms-2" style={{ backgroundColor: 'var(--pacu-accent)', fontSize: '0.7rem' }}>{activeFilterCount}</span>
-                </button>
-              )}
-            </div>
-          </form>
+        <div className="card-body p-4 d-flex flex-wrap align-items-end justify-content-between gap-3">
+          <div>
+            <label htmlFor="pacu-report-month" className="form-label">Month</label>
+            <input
+              id="pacu-report-month"
+              type="month"
+              className="form-control"
+              style={{ maxWidth: 220 }}
+              value={month}
+              max={currentMonth()}
+              onChange={(e) => setMonth(e.target.value || currentMonth())}
+            />
+          </div>
+          <div className="d-flex gap-2">
+            <button className="btn btn-outline-secondary" onClick={() => handleExport('xlsx')} disabled={exporting !== null || loading || isEmpty}>
+              {exporting === 'xlsx' ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-file-earmark-excel me-1" />}
+              Excel
+            </button>
+            <button className="btn btn-outline-secondary" onClick={() => handleExport('pdf')} disabled={exporting !== null || loading || isEmpty}>
+              {exporting === 'pdf' ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-file-earmark-pdf me-1" />}
+              PDF
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Results */}
-      {hasRun && (
-        <div className="card">
-          <div className="card-header d-flex align-items-center justify-content-between py-3 px-4">
-            <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>
-              {rows.length} record{rows.length !== 1 ? 's' : ''}
-            </span>
-            <div className="d-flex gap-2">
-              <button className="btn btn-sm btn-outline-secondary" onClick={() => handleExport('xlsx')} disabled={exporting !== null || rows.length === 0}>
-                {exporting === 'xlsx' ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-file-earmark-excel me-1" />}
-                Excel
-              </button>
-              <button className="btn btn-sm btn-outline-secondary" onClick={() => handleExport('pdf')} disabled={exporting !== null || rows.length === 0}>
-                {exporting === 'pdf' ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-file-earmark-pdf me-1" />}
-                PDF
-              </button>
+      {loading ? (
+        <div className="d-flex justify-content-center py-5">
+          <div className="spinner-border text-primary" />
+        </div>
+      ) : report ? (
+        <>
+          {/* Headline */}
+          <div className="card mb-2">
+            <div className="card-body p-4 d-flex flex-wrap align-items-center gap-4">
+              <div>
+                <div className="fw-bold lh-1" style={{ fontSize: '2.4rem' }}>{report.total}</div>
+                <div className="text-muted" style={{ fontSize: '0.8rem' }}>Accomplishments in {report.month_label}</div>
+              </div>
+              <div className="d-flex flex-wrap gap-2 ms-auto">
+                {report.by_status.map((s) => (
+                  <span
+                    key={s.name}
+                    className="d-inline-flex align-items-center gap-2 px-3 py-2"
+                    style={{ borderRadius: 'var(--pacu-radius-sm)', backgroundColor: (STATUS_COLOR[s.name] ?? 'var(--bs-secondary)') + '18', fontSize: '0.82rem' }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: STATUS_COLOR[s.name] ?? 'var(--bs-secondary)' }} />
+                    <span className="text-muted">{STATUS_LABELS[s.name] ?? s.name}</span>
+                    <span className="fw-semibold">{s.count}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
-          {rows.length === 0 ? (
-            <div className="card-body p-5 text-center text-muted">
-              <i className="bi bi-inbox fs-2 d-block mb-2" />
-              No records match these filters.
+          {isEmpty ? (
+            <div className="card">
+              <div className="card-body p-5 text-center text-muted">
+                <i className="bi bi-calendar-x fs-2 d-block mb-2" />
+                No completed or cancelled transactions for {report.month_label}.
+              </div>
             </div>
           ) : (
             <>
-              <div className="table-responsive">
-                <table className="table mb-0 align-middle" style={{ fontSize: '0.9rem' }}>
-                  <thead>
-                    <tr>
-                      <th className="ps-4" style={{ width: '1%', whiteSpace: 'nowrap' }}>Ref No.</th>
-                      <th style={{ width: '1%', whiteSpace: 'nowrap' }}>Date</th>
-                      <th>Client</th>
-                      <th style={{ width: '1%', whiteSpace: 'nowrap' }}>Sex</th>
-                      <th>Lawyer</th>
-                      <th>Issues</th>
-                      <th>Referred Office</th>
-                      <th style={{ width: '1%', whiteSpace: 'nowrap' }}>Status</th>
-                      <th style={{ width: '1%' }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pageRows.map((r) => {
-                      const priority = [r.is_senior && 'Senior', r.is_pwd && 'PWD', r.is_pregnant && 'Pregnant'].filter(Boolean) as string[];
-                      return (
-                        <tr key={r.client_id}>
-                          <td className="ps-4"><span className="pacu-mono">{r.reference_no}</span></td>
-                          <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(r.transaction_date)}</td>
-                          <td>
-                            <div>{r.first_name} {r.last_name}</div>
-                            {priority.length > 0 && (
-                              <div className="d-flex gap-1 mt-1">
-                                {priority.map((p) => <span key={p} className="pacu-badge" style={{ fontSize: '0.65rem' }}>{p}</span>)}
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            {r.sex ? r.sex.charAt(0).toUpperCase() + r.sex.slice(1) : '—'}
-                          </td>
-                          <td>{r.lawyer_name ?? <span className="text-muted">—</span>}</td>
-                          <td className="text-muted" style={{ maxWidth: 200 }}>
-                            <div className="text-truncate" title={r.issue_categories ?? undefined}>{r.issue_categories ?? '—'}</div>
-                          </td>
-                          <td>{r.referred_office ?? <span className="text-muted">—</span>}</td>
-                          <td>
-                            <span className={`pacu-badge ${STATUS_BADGE[r.status] ?? ''}`}>
-                              {STATUS_OPTIONS.find((s) => s.value === r.status)?.label ?? r.status}
-                            </span>
-                          </td>
-                          <td className="pe-3">
-                            {r.referred_office && (
-                              <button className="btn btn-sm btn-outline-secondary" onClick={() => handleReferralDownload(r)} disabled={downloadingId === r.client_id} title="Download referral form">
-                                {downloadingId === r.client_id ? <span className="spinner-border spinner-border-sm" /> : <i className="bi bi-file-earmark-pdf" />}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              {/* Trend */}
+              <SectionLabel>Trend</SectionLabel>
+              <div className="card mb-2">
+                <div className="card-body p-4">
+                  <p className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>Accomplishments — Last 6 Months</p>
+                  <p className="text-muted mb-3" style={{ fontSize: '0.78rem' }}>Monthly completed &amp; cancelled volume</p>
+                  <TrendChart data={report.trend} />
+                </div>
               </div>
 
-              <div className="card-footer d-flex flex-wrap align-items-center justify-content-between gap-3 py-2 px-4" style={{ fontSize: '0.85rem' }}>
-                <span className="text-muted">
-                  Showing {startIdx + 1}–{Math.min(startIdx + pageSize, rows.length)} of {rows.length}
-                </span>
-                <div className="d-flex align-items-center gap-3 flex-wrap">
-                  <div className="d-flex align-items-center gap-2">
-                    <label htmlFor="pacu-report-page-size" className="text-muted mb-0">Rows per page</label>
-                    <select id="pacu-report-page-size" className="form-select form-select-sm" style={{ width: 'auto' }} value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}>
-                      <option value={10}>10</option>
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                    </select>
-                  </div>
-                  {totalPages > 1 && (
-                    <nav aria-label="Report pagination">
-                      <ul className="pagination pagination-sm mb-0">
-                        <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                          <button type="button" className="page-link" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><i className="bi bi-chevron-bar-left" /></button>
-                        </li>
-                        <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                          <button type="button" className="page-link" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}><i className="bi bi-chevron-left" /></button>
-                        </li>
-                        {pageNumbers.map((n) => (
-                          <li key={n} className={`page-item ${n === currentPage ? 'active' : ''}`}>
-                            <button type="button" className="page-link" onClick={() => setCurrentPage(n)}>{n}</button>
-                          </li>
-                        ))}
-                        <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                          <button type="button" className="page-link" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><i className="bi bi-chevron-right" /></button>
-                        </li>
-                        <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                          <button type="button" className="page-link" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><i className="bi bi-chevron-bar-right" /></button>
-                        </li>
-                      </ul>
-                    </nav>
-                  )}
+              {/* Issues & referrals */}
+              <SectionLabel>Issues &amp; Referrals</SectionLabel>
+              <div className="row g-4">
+                <div className="col-lg-6">
+                  <SummaryCard title="Top Issue Categories" subtitle="Most common legal issues this month">
+                    <CountBarList items={report.by_issue} empty="No tagged issues this month." />
+                  </SummaryCard>
+                </div>
+                <div className="col-lg-6">
+                  <SummaryCard title="Referred Offices" subtitle="Where clients were referred">
+                    <CountBarList items={report.by_office} empty="No referrals this month." />
+                  </SummaryCard>
+                </div>
+              </div>
+
+              {/* Demographics */}
+              <SectionLabel>Demographics</SectionLabel>
+              <div className="row g-4">
+                <div className="col-lg-4">
+                  <SummaryCard title="By Sex">
+                    <CountBarList items={report.by_sex} empty="No data." format={cap} />
+                  </SummaryCard>
+                </div>
+                <div className="col-lg-4">
+                  <SummaryCard title="Priority Groups">
+                    <CountBarList items={report.by_priority} empty="No priority clients this month." />
+                  </SummaryCard>
+                </div>
+                <div className="col-lg-4">
+                  <SummaryCard title="Top Cities / Municipalities">
+                    <CountBarList items={report.by_city} empty="No location data." />
+                  </SummaryCard>
+                </div>
+              </div>
+
+              {/* Lawyer productivity */}
+              <SectionLabel>Lawyer Productivity</SectionLabel>
+              <div className="row g-4 mb-2">
+                <div className="col-12">
+                  <SummaryCard title="Transactions per Lawyer" subtitle="Cases handled this month">
+                    <CountBarList items={report.by_lawyer} empty="No assigned transactions this month." />
+                  </SummaryCard>
                 </div>
               </div>
             </>
           )}
-        </div>
-      )}
+        </>
+      ) : null}
     </div>
   );
 }

@@ -16,8 +16,7 @@ import type {
   IssueTag,
   LawyerOption,
   ReferredOffice,
-  ReportFilters,
-  ReportRow,
+  MonthlyReport,
   SubmitFeedbackBody,
   SupportStaffDashboard,
   UpdateIssueCategoryBody,
@@ -203,9 +202,9 @@ export const lookupService = {
 };
 
 export const reportService = {
-  run: (filters: ReportFilters) => apiFetch<ReportRow[]>(`/reports${toQueryString(filters)}`),
-  exportExcel: (filters: ReportFilters) =>
-    apiDownload(`/reports/export.xlsx${toQueryString(filters)}`, `pacu-report-${Date.now()}.xlsx`),
-  exportPdf: (filters: ReportFilters) =>
-    apiDownload(`/reports/export.pdf${toQueryString(filters)}`, `pacu-report-${Date.now()}.pdf`),
+  getMonthly: (month: string) => apiFetch<MonthlyReport>(`/reports${toQueryString({ month })}`),
+  exportExcel: (month: string) =>
+    apiDownload(`/reports/export.xlsx${toQueryString({ month })}`, `pacu-monthly-report-${month}.xlsx`),
+  exportPdf: (month: string) =>
+    apiDownload(`/reports/export.pdf${toQueryString({ month })}`, `pacu-monthly-report-${month}.pdf`),
 };

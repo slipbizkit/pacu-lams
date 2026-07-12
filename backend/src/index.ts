@@ -10,7 +10,15 @@ import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+// In production, lock CORS to the configured frontend origin. In development,
+// allow any localhost origin so multiple dev frontends (different Vite ports,
+// e.g. several concurrent sessions) can reach the API without reconfiguring.
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL
+    : (origin, cb) => cb(null, !origin || /^http:\/\/localhost:\d+$/.test(origin) || origin === process.env.FRONTEND_URL),
+  credentials: true,
+}));
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
