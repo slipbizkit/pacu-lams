@@ -132,7 +132,7 @@ export async function saveConsultation(
   }
 
   const hasReferral = body.referred_office_id != null;
-  if (hasReferral !== (body.referred_reason != null && body.referred_reason.trim() !== '')) {
+  if (!body.mark_incomplete && hasReferral !== (body.referred_reason != null && body.referred_reason.trim() !== '')) {
     return { error: 'validation', message: 'Referral office and reason must be provided together' };
   }
 

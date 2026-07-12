@@ -23,30 +23,6 @@
   color: #f5f3ff;
 }
 
-.pacu-auth-hero::before,
-.pacu-auth-hero::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(196, 181, 253, 0.14);
-  pointer-events: none;
-}
-
-.pacu-auth-hero::before {
-  width: 340px;
-  height: 340px;
-  top: -120px;
-  right: -140px;
-}
-
-.pacu-auth-hero::after {
-  width: 260px;
-  height: 260px;
-  bottom: -100px;
-  left: -100px;
-  background: rgba(139, 92, 246, 0.18);
-}
-
 .pacu-auth-hero > * {
   position: relative;
   z-index: 1;
@@ -57,6 +33,29 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+
+.pacu-auth-topnav {
+  --dole-blue: #12358a;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  height: 84px;
+  padding: 0 1.5rem;
+  background-color: var(--bs-body-bg);
+  border-bottom: 1px solid var(--pacu-border);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+}
+
+.pacu-auth-topnav-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+html[data-theme='dark'] .pacu-auth-topnav {
+  --dole-blue: #7ba7f0;
 }
 
 .pacu-auth-card-viewport {

@@ -226,7 +226,13 @@ export default function MyClientsPage() {
                       <td className="ps-4">
                         <span className="pacu-mono fw-semibold">#{c.queue_number}</span>
                       </td>
-                      <td>{c.first_name} {c.last_name}</td>
+                      <td>
+                        <span className="d-flex align-items-center gap-2">
+                          {c.is_anonymous
+                            ? <><i className="bi bi-incognito text-muted" /><span className="text-muted fst-italic">Anonymous</span></>
+                            : <>{c.first_name} {c.last_name}</>}
+                        </span>
+                      </td>
                       <td>
                         {isPriority(c)
                           ? <span className="text-success fw-semibold">Priority</span>

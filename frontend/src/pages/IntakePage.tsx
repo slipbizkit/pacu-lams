@@ -14,7 +14,7 @@ const EMPTY_FORM: IntakeBody = {
   last_name: '',
   suffix: '',
   sex: undefined,
-  contact_no: '09',
+  contact_no: '',
   email: '',
   city_id: undefined,
   occupation: '',
@@ -47,13 +47,15 @@ function validateStep(step: number, form: IntakeBody): FieldErrors {
   const isAnon = form.is_anonymous;
 
   if (step === 0) {
+    const rawContact = form.contact_no?.replace(/-/g, '') ?? '';
     if (!isAnon) {
       if (!form.first_name?.trim()) errors.first_name = 'First name is required';
       if (!form.last_name?.trim()) errors.last_name = 'Last name is required';
       if (!form.sex) errors.sex = 'Sex is required';
-      const rawContact = form.contact_no?.replace(/-/g, '') ?? '';
       if (rawContact.length < 11) errors.contact_no = 'Contact number is required';
       if (!form.city_id) errors.city_id = 'City/Municipality is required';
+    } else if (rawContact.length > 0 && rawContact.length < 11) {
+      errors.contact_no = 'Enter a valid contact number';
     }
     if (form.email?.trim() && !EMAIL_PATTERN.test(form.email.trim())) {
       errors.email = 'Enter a valid email address';
@@ -103,7 +105,7 @@ export default function IntakePage() {
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   }
 
-  function goNext() {
+  async function goNext() {
     const stepErrors = validateStep(step, form);
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
@@ -112,6 +114,25 @@ export default function IntakePage() {
       return;
     }
     setErrors({});
+
+    if (form.is_anonymous && step === 0) {
+      const rawContact = form.contact_no?.replace(/-/g, '') ?? '';
+      const missingContact = rawContact.length < 11;
+      const missingEmail = !form.email?.trim();
+      if (missingContact || missingEmail) {
+        const warn = await Swal.fire({
+          icon: 'info',
+          title: 'Contact details left blank',
+          text: 'Leaving your contact number or email blank may limit our ability to follow up with you regarding the status of your concern.',
+          showCancelButton: true,
+          confirmButtonText: 'Proceed',
+          cancelButtonText: 'Go back to fill it up',
+          confirmButtonColor: 'var(--pacu-accent)',
+        });
+        if (!warn.isConfirmed) return;
+      }
+    }
+
     setDirection('forward');
     setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   }
@@ -547,6 +568,15 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
     update('contact_no', formatContactNo(enforced));
   }
 
+  function handleContactFocus() {
+    if (!form.contact_no) update('contact_no', '09');
+  }
+
+  function handleContactBlur() {
+    const raw = form.contact_no?.replace(/-/g, '') ?? '';
+    if (raw.length <= 2) update('contact_no', '');
+  }
+
   return (
     <>
       <p className="pacu-eyebrow mb-3">Name of Client / Pangalan ng Kliyente</p>
@@ -604,9 +634,10 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
             <input
               className="form-control"
               inputMode="numeric"
-              placeholder="09XX-XXX-XXXX"
               value={form.contact_no}
               onChange={(e) => handleContactChange(e.target.value)}
+              onFocus={handleContactFocus}
+              onBlur={handleContactBlur}
             />
             {errors.contact_no && (
               <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.contact_no}</div>

@@ -160,9 +160,10 @@ export default function LoginPage() {
     <div className="pacu-auth-shell">
       {/* Brand panel — fixed institutional identity, deliberately distinct from the themed form panel */}
       <div className="pacu-auth-hero d-none d-lg-flex">
-        <div className="d-flex align-items-center gap-2">
-          <BrandMark size={36} />
+        <div className="d-flex flex-column" style={{ lineHeight: 1.15 }}>
           <span className="pacu-display fs-4">PACU</span>
+          <span className="pacu-display fs-4">Legal Assistance</span>
+          <span className="pacu-display fs-4">Monitoring System</span>
         </div>
 
         <div>
@@ -194,12 +195,20 @@ export default function LoginPage() {
 
       {/* Form panel */}
       <div className="pacu-auth-formside">
-        <div className="d-flex justify-content-between align-items-center p-4">
-          <div className="d-lg-none d-flex align-items-center gap-2">
-            <BrandMark size={28} />
-            <span className="pacu-display fs-5">PACU</span>
+        <div className="pacu-auth-topnav">
+          <div />
+          <div className="pacu-dole-banner">
+            <img src="/dole-logo.png" alt="DOLE" className="pacu-dole-banner-logo" />
+            <div className="pacu-dole-banner-text">
+              <div className="pacu-dole-banner-republic">
+                <span>Republic of the Philippines</span>
+                <span className="pacu-dole-banner-rule" />
+              </div>
+              <div className="pacu-dole-banner-dept">Department of Labor and Employment</div>
+            </div>
+            <img src="/Bagong Pilipinas Logo.png" alt="Bagong Pilipinas" className="pacu-dole-banner-logo" />
           </div>
-          <div className="ms-auto">
+          <div className="pacu-auth-topnav-right">
             <ThemeSwitcher />
           </div>
         </div>

@@ -289,7 +289,7 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [othersText, setOthersText] = useState('');
   const [legalAdvice, setLegalAdvice] = useState(client.legal_advice ?? '');
-  const [referring, setReferring] = useState(!!client.referred_office_id);
+  const [referring, setReferring] = useState(!!client.referred_office_id || client.referred_reason !== null);
   const [officeId, setOfficeId] = useState<number | ''>(client.referred_office_id ?? '');
   const [referralReason, setReferralReason] = useState(client.referred_reason ?? '');
   const [markIncomplete, setMarkIncomplete] = useState(false);
@@ -376,7 +376,7 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
         issue_description: hasOthersSelected ? othersText : undefined,
         legal_advice: legalAdvice || undefined,
         referred_office_id: referring && officeId !== '' ? Number(officeId) : null,
-        referred_reason: referring ? referralReason || undefined : null,
+        referred_reason: referring ? (referralReason.trim() || (markIncomplete ? '' : undefined)) : null,
         mark_incomplete: markIncomplete,
       });
       Swal.fire({

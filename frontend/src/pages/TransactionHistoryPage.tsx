@@ -278,10 +278,14 @@ export default function TransactionHistoryPage() {
                       <span className="pacu-mono fw-semibold">{row.queue_number}</span>
                     </td>
                     <td>
-                      {row.first_name} {row.last_name}
-                      {(row.is_senior || row.is_pwd || row.is_pregnant) && (
-                        <span className="ms-1 pacu-badge" style={{ fontSize: '0.65rem' }}>Priority</span>
-                      )}
+                      <span className="d-flex align-items-center gap-2">
+                        {row.is_anonymous
+                          ? <><i className="bi bi-incognito text-muted" /><span className="text-muted fst-italic">Anonymous</span></>
+                          : <>{row.first_name} {row.last_name}</>}
+                        {(row.is_senior || row.is_pwd || row.is_pregnant) && (
+                          <span className="pacu-badge" style={{ fontSize: '0.65rem' }}>Priority</span>
+                        )}
+                      </span>
                     </td>
                     <td className="text-muted">
                       {row.employer || <span style={{ opacity: 0.4 }}>—</span>}
