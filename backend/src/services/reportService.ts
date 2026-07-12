@@ -199,46 +199,150 @@ export async function buildExcelBuffer(report: MonthlyReport): Promise<Buffer> {
   return Buffer.from(arrayBuffer);
 }
 
+const PDF = {
+  navy: '#1b3a6b',
+  navyDark: '#12294d',
+  ink: '#1f2733',
+  muted: '#6b7280',
+  border: '#d5dae2',
+  zebra: '#f4f6f9',
+  cardBg: '#eef2f8',
+  white: '#ffffff',
+};
+
+function titleCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export function buildPdfBuffer(report: MonthlyReport): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 48, size: 'A4' });
+    const margin = 48;
+    const doc = new PDFDocument({ margin, size: 'A4', bufferPages: true });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.fontSize(18).fillColor('#000').text('PACU Monthly Report', { align: 'left' });
-    doc.fontSize(12).fillColor('#333').text(report.month_label);
-    doc.fontSize(9).fillColor('#666').text(`Generated ${new Date().toLocaleString()} — ${report.total} transaction(s)`);
-    doc.moveDown();
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+    const contentW = right - left;
+    const countColW = 110;
+    const labelColW = contentW - countColW;
+    const bottomLimit = () => doc.page.height - doc.page.margins.bottom - 24;
 
-    const section = (heading: string, items: CountItem[]) => {
-      if (doc.y > doc.page.height - 140) doc.addPage();
-      doc.moveDown(0.5);
-      doc.fontSize(12).fillColor('#000').font('Helvetica-Bold').text(heading);
-      doc.moveDown(0.25);
-      doc.fontSize(10).font('Helvetica').fillColor('#222');
+    let y = doc.page.margins.top;
+
+    // --- Header -----------------------------------------------------------
+    doc.fillColor(PDF.muted).font('Helvetica').fontSize(9)
+      .text('Department of Labor and Employment', left, y);
+    y += 13;
+    doc.fillColor(PDF.muted).font('Helvetica').fontSize(9)
+      .text('Public Assistance and Complaints Unit', left, y);
+    y += 18;
+    doc.fillColor(PDF.navy).font('Helvetica-Bold').fontSize(19)
+      .text('Monthly Accomplishment Report', left, y);
+    y += 26;
+    doc.fillColor(PDF.ink).font('Helvetica').fontSize(12).text(report.month_label, left, y);
+    doc.fillColor(PDF.muted).font('Helvetica').fontSize(9)
+      .text(`Generated ${new Date().toLocaleString()}`, left, y + 3, { width: contentW, align: 'right' });
+    y += 20;
+    doc.moveTo(left, y).lineTo(right, y).lineWidth(1.5).strokeColor(PDF.navy).stroke();
+    y += 20;
+
+    // --- Summary cards ----------------------------------------------------
+    const statusMap: Record<string, number> = {};
+    for (const s of report.by_status) statusMap[s.name] = s.count;
+    const cards: [string, number][] = [
+      ['Total accomplishments', report.total],
+      ['Completed', statusMap['completed'] ?? 0],
+      ['Cancelled', statusMap['cancelled'] ?? 0],
+    ];
+    const gap = 12;
+    const cardW = (contentW - gap * 2) / 3;
+    const cardH = 52;
+    cards.forEach(([label, value], i) => {
+      const x = left + i * (cardW + gap);
+      doc.roundedRect(x, y, cardW, cardH, 6).fillColor(PDF.cardBg).fill();
+      doc.roundedRect(x, y, cardW, cardH, 6).lineWidth(0.5).strokeColor(PDF.border).stroke();
+      doc.fillColor(PDF.muted).font('Helvetica').fontSize(8)
+        .text(label.toUpperCase(), x + 12, y + 10, { width: cardW - 24 });
+      doc.fillColor(PDF.navy).font('Helvetica-Bold').fontSize(20)
+        .text(String(value), x + 12, y + 24, { width: cardW - 24 });
+    });
+    y += cardH + 24;
+
+    // --- Table helper -----------------------------------------------------
+    const rowH = 22;
+
+    function drawHeaderRow(cols: [string, string]) {
+      doc.rect(left, y, contentW, rowH).fillColor(PDF.navy).fill();
+      doc.fillColor(PDF.white).font('Helvetica-Bold').fontSize(9);
+      doc.text(cols[0], left + 8, y + 7, { width: labelColW - 16, lineBreak: false });
+      doc.text(cols[1], left + labelColW, y + 7, { width: countColW - 10, align: 'right', lineBreak: false });
+      y += rowH;
+    }
+
+    function drawRow(name: string, count: string, index: number, bold = false) {
+      const top = y;
+      if (index % 2 === 1) doc.rect(left, top, contentW, rowH).fillColor(PDF.zebra).fill();
+      doc.fillColor(PDF.ink).font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9);
+      doc.text(name, left + 8, top + 7, { width: labelColW - 16, ellipsis: true, lineBreak: false });
+      doc.text(count, left + labelColW, top + 7, { width: countColW - 10, align: 'right', lineBreak: false });
+      doc.lineWidth(0.5).strokeColor(PDF.border);
+      doc.moveTo(left, top).lineTo(left, top + rowH).stroke();
+      doc.moveTo(right, top).lineTo(right, top + rowH).stroke();
+      doc.moveTo(left + labelColW, top).lineTo(left + labelColW, top + rowH).stroke();
+      doc.moveTo(left, top + rowH).lineTo(right, top + rowH).stroke();
+      y += rowH;
+    }
+
+    function drawTable(title: string, cols: [string, string], items: CountItem[], totalRow?: number) {
+      if (y + 60 > bottomLimit()) { doc.addPage(); y = doc.page.margins.top; }
+      doc.fillColor(PDF.navyDark).font('Helvetica-Bold').fontSize(12).text(title, left, y);
+      y += 18;
+      drawHeaderRow(cols);
       if (items.length === 0) {
-        doc.fillColor('#888').text('No data for this month.');
-        doc.fillColor('#222');
-        return;
+        doc.fillColor(PDF.muted).font('Helvetica-Oblique').fontSize(9)
+          .text('No data for this month', left + 8, y + 7, { width: contentW - 16, lineBreak: false });
+        doc.lineWidth(0.5).strokeColor(PDF.border).rect(left, y, contentW, rowH).stroke();
+        y += rowH;
+      } else {
+        items.forEach((it, i) => {
+          if (y + rowH > bottomLimit()) { doc.addPage(); y = doc.page.margins.top; drawHeaderRow(cols); }
+          drawRow(it.name, String(it.count), i);
+        });
+        if (totalRow !== undefined) {
+          if (y + rowH > bottomLimit()) { doc.addPage(); y = doc.page.margins.top; drawHeaderRow(cols); }
+          drawRow('Total', String(totalRow), items.length, true);
+        }
       }
-      const labelWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right - 60;
-      for (const it of items) {
-        if (doc.y > doc.page.height - doc.page.margins.bottom - 20) doc.addPage();
-        const y = doc.y;
-        doc.text(it.name, doc.page.margins.left, y, { width: labelWidth, ellipsis: true, continued: false });
-        doc.text(String(it.count), doc.page.margins.left + labelWidth, y, { width: 60, align: 'right' });
-      }
-    };
+      y += 18;
+    }
 
-    section('By Status', report.by_status.map((s) => ({ name: statusLabel(s.name), count: s.count })));
-    section('Top Issue Categories', report.by_issue);
-    section('Referred Offices', report.by_office);
-    section('By Sex', report.by_sex.map((s) => ({ name: s.name.charAt(0).toUpperCase() + s.name.slice(1), count: s.count })));
-    section('Priority Groups', report.by_priority);
-    section('Top Cities / Municipalities', report.by_city);
-    section('Lawyer Productivity', report.by_lawyer);
+    // --- Sections ---------------------------------------------------------
+    drawTable('Transactions by status', ['Status', 'Transactions'],
+      report.by_status.map((s) => ({ name: statusLabel(s.name), count: s.count })), report.total);
+    drawTable('Top issue categories', ['Category', 'Count'], report.by_issue);
+    drawTable('Referrals by office', ['Office', 'Count'], report.by_office);
+    drawTable('Clients by sex', ['Sex', 'Count'],
+      report.by_sex.map((s) => ({ name: titleCase(s.name), count: s.count })));
+    drawTable('Priority groups', ['Group', 'Count'], report.by_priority);
+    drawTable('Top cities / municipalities', ['City / Municipality', 'Count'], report.by_city);
+    drawTable('Accomplishments by lawyer', ['Lawyer', 'Transactions'], report.by_lawyer);
+
+    // --- Footer (page numbers) -------------------------------------------
+    const range = doc.bufferedPageRange();
+    for (let i = 0; i < range.count; i++) {
+      doc.switchToPage(range.start + i);
+      // Keep the footer above the bottom-margin boundary; writing into the margin
+      // makes PDFKit auto-append a blank page.
+      const fy = doc.page.height - doc.page.margins.bottom - 12;
+      doc.lineWidth(0.5).strokeColor(PDF.border)
+        .moveTo(left, fy - 6).lineTo(right, fy - 6).stroke();
+      doc.fillColor(PDF.muted).font('Helvetica').fontSize(8);
+      doc.text('PACU — Confidential', left, fy, { width: contentW / 2, lineBreak: false });
+      doc.text(`Page ${i + 1} of ${range.count}`, left, fy, { width: contentW, align: 'right', lineBreak: false });
+    }
 
     doc.end();
   });
