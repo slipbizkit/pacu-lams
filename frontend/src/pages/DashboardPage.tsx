@@ -2,18 +2,12 @@ import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { clientService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Dashboard, DashboardCharts } from '../types/client';
 import SupportStaffDashboardPage from './SupportStaffDashboardPage';
 
-// 14 distinct colours for the donut slices
-const DONUT_COLORS = [
-  '#4f7ef7', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#06b6d4', '#f97316', '#ec4899', '#10b981', '#6366f1',
-];
 
 function StatCard({
   icon, label, value, color, muted,
@@ -81,7 +75,7 @@ function DailyBarChart({ data }: { data: DashboardCharts['daily'] }) {
           labelStyle={{ color: 'var(--bs-body-color)', fontWeight: 600 }}
           itemStyle={{ color: 'var(--bs-body-color)' }}
           cursor={{ fill: 'var(--bs-border-color)', opacity: 0.4 }}
-          formatter={(v: number) => [v, 'Completed']}
+          formatter={(v) => [v as number, 'Completed']}
         />
         <Bar dataKey="count" fill="#4f7ef7" radius={[4, 4, 0, 0]} name="Completed" maxBarSize={36} />
       </BarChart>
@@ -89,56 +83,6 @@ function DailyBarChart({ data }: { data: DashboardCharts['daily'] }) {
   );
 }
 
-function CategoryDonut({ data }: { data: NonNullable<DashboardCharts['categories']> }) {
-  if (data.length === 0) {
-    return (
-      <div className="d-flex align-items-center justify-content-center h-100 text-muted" style={{ minHeight: 220, fontSize: '0.85rem' }}>
-        No issue data yet.
-      </div>
-    );
-  }
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey="count"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          outerRadius={80}
-          innerRadius={46}
-          paddingAngle={2}
-        >
-          {data.map((_, i) => (
-            <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip
-          contentStyle={{
-            backgroundColor: 'var(--bs-body-bg)',
-            border: '1px solid var(--bs-border-color)',
-            borderRadius: 8,
-            fontSize: '0.82rem',
-          }}
-          labelStyle={{ color: 'var(--bs-body-color)' }}
-          itemStyle={{ color: 'var(--bs-body-color)' }}
-          formatter={(v: number, name: string) => [v, name]}
-        />
-        <Legend
-          iconType="circle"
-          iconSize={8}
-          wrapperStyle={{ fontSize: '0.75rem', paddingTop: 8 }}
-          formatter={(value: string) => (
-            <span style={{ color: 'var(--bs-body-color)' }}>
-              {value.length > 22 ? value.slice(0, 22) + '…' : value}
-            </span>
-          )}
-        />
-      </PieChart>
-    </ResponsiveContainer>
-  );
-}
 
 export default function DashboardPage() {
   const { role } = useAuth();
@@ -171,7 +115,6 @@ function MainDashboard() {
   useEffect(() => { load(); }, []);
 
   const isLawyer = role === 'lawyer';
-  const showCategories = false;
 
   return (
     <div>

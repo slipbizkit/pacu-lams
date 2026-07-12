@@ -218,6 +218,7 @@ export default function IntakePage() {
               </div>
               <div className="pacu-dole-banner-dept">Department of Labor and Employment</div>
             </div>
+            <img src="/Bagong Pilipinas Logo.png" alt="Bagong Pilipinas" className="pacu-dole-banner-logo" />
           </div>
         </div>
 

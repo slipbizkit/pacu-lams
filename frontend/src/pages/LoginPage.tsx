@@ -4,7 +4,6 @@ import Swal from 'sweetalert2';
 import { authService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
-import { BrandMark } from '../components/BrandMark';
 import { OtpInput } from '../components/OtpInput';
 
 type Step = 'credentials' | 'totp' | 'totp-setup';
