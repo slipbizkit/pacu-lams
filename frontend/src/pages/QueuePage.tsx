@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
 import { clientService, userService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -40,6 +41,9 @@ export default function QueuePage() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [countdown, setCountdown] = useState(60);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const openMenuClientRef = useRef<Client | null>(null);
 
   async function load() {
     setLoading(true);
@@ -134,6 +138,26 @@ export default function QueuePage() {
     } finally {
       setTakingNext(false);
     }
+  }
+
+  useEffect(() => {
+    if (openMenuId === null) return;
+    function close() { setOpenMenuId(null); }
+    document.addEventListener('click', close);
+    document.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('click', close);
+      document.removeEventListener('scroll', close, true);
+    };
+  }, [openMenuId]);
+
+  function toggleMenu(e: React.MouseEvent<HTMLButtonElement>, client: Client) {
+    e.stopPropagation();
+    if (openMenuId === client.client_id) { setOpenMenuId(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    openMenuClientRef.current = client;
+    setOpenMenuId(client.client_id);
   }
 
   async function handleRemove(client: Client) {
@@ -309,8 +333,8 @@ export default function QueuePage() {
                       </td>
                       {(canAssign || canRemove) && (
                         <td className="text-end pe-4">
-                          <div className="d-flex gap-2 justify-content-end">
-                            {canAssign && (
+                          {canAssign ? (
+                            <div className="d-flex gap-2 justify-content-end">
                               <button
                                 className="btn btn-sm btn-primary"
                                 disabled={blocked || assigningId === c.client_id || removingId === c.client_id}
@@ -319,8 +343,6 @@ export default function QueuePage() {
                               >
                                 {assigningId === c.client_id ? <span className="spinner-border spinner-border-sm" /> : 'Assign'}
                               </button>
-                            )}
-                            {canRemove && (
                               <button
                                 className="btn btn-sm btn-outline-danger"
                                 style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
@@ -329,8 +351,41 @@ export default function QueuePage() {
                               >
                                 {removingId === c.client_id ? <span className="spinner-border spinner-border-sm" /> : 'Cancel'}
                               </button>
-                            )}
-                          </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-light"
+                                disabled={removingId === c.client_id}
+                                style={{ lineHeight: 1 }}
+                                onClick={(e) => toggleMenu(e, c)}
+                              >
+                                {removingId === c.client_id
+                                  ? <span className="spinner-border spinner-border-sm" />
+                                  : <i className="bi bi-three-dots" />}
+                              </button>
+                              {openMenuId === c.client_id && createPortal(
+                                <ul
+                                  className="dropdown-menu show shadow-sm"
+                                  style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999, minWidth: 200 }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <li>
+                                    <button
+                                      type="button"
+                                      className="dropdown-item d-flex align-items-center gap-2 text-danger"
+                                      onClick={() => { setOpenMenuId(null); handleRemove(openMenuClientRef.current!); }}
+                                    >
+                                      <i className="bi bi-person-x" />
+                                      Remove from Queue
+                                    </button>
+                                  </li>
+                                </ul>,
+                                document.body
+                              )}
+                            </div>
+                          )}
                         </td>
                       )}
                     </tr>

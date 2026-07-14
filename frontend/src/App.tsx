@@ -17,6 +17,7 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import AdminCategoriesPage from './pages/AdminCategoriesPage';
 import AdminOfficesPage from './pages/AdminOfficesPage';
 import AdminReportsPage from './pages/AdminReportsPage';
+import PersonnelCancelledPage from './pages/PersonnelCancelledPage';
 
 export default function App() {
   return (
@@ -39,6 +40,13 @@ export default function App() {
             </Route>
           </Route>
 
+          <Route element={<PrivateRoute allowedRoles={['personnel']} />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="/personnel-history" element={<SupportStaffHistoryPage />} />
+              <Route path="/personnel-cancelled" element={<PersonnelCancelledPage />} />
+            </Route>
+          </Route>
+
           <Route element={<PrivateRoute allowedRoles={['personnel', 'lawyer', 'admin', 'support_staff']} />}>
             <Route element={<DashboardLayout />}>
               <Route path="/queue" element={<QueuePage />} />
@@ -53,7 +61,7 @@ export default function App() {
             </Route>
           </Route>
 
-          <Route element={<PrivateRoute allowedRoles={['personnel', 'lawyer', 'support_staff']} />}>
+          <Route element={<PrivateRoute allowedRoles={['personnel', 'lawyer', 'admin', 'support_staff']} />}>
             <Route element={<DashboardLayout />}>
               <Route path="/account" element={<MyAccountPage />} />
             </Route>

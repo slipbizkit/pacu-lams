@@ -2,6 +2,7 @@ import type { CreateUserBody, CreateUserResult, LoginResponse, ResetPasswordResu
 import type {
   CityMunicipality,
   Client,
+  ClientFeedback,
   CompletedTransaction,
   ConsultationBody,
   CreateIssueCategoryBody,
@@ -149,6 +150,11 @@ export const clientService = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  encodeFeedback: (clientId: number, body: SubmitFeedbackBody) =>
+    apiFetch<{ message: string; feedback: ClientFeedback }>(`/clients/${clientId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   sendEmail: (clientId: number) =>
     apiFetch<{ message: string; email_sent_at: string }>(`/clients/${clientId}/send-email`, { method: 'POST' }),
   downloadReferralPdf: (clientId: number, referenceNo: string) =>
@@ -170,6 +176,10 @@ export const clientService = {
     apiFetch<DashboardCharts>('/clients/dashboard/charts'),
   listAllHistory: (filters?: HistoryFilters) =>
     apiFetch<CompletedTransaction[]>(`/clients/all-history${toQueryString(filters ?? {})}`),
+  listAllCancelled: (filters?: HistoryFilters) =>
+    apiFetch<(Client & { cancelled_by_name: string | null })[]>(`/clients/all-cancelled${toQueryString(filters ?? {})}`),
+  restoreToQueue: (clientId: number) =>
+    apiFetch<Client>(`/clients/${clientId}/restore`, { method: 'POST' }),
 };
 
 export const userService = {

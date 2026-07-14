@@ -1,3 +1,5 @@
+import { ClientFeedback } from './feedback';
+
 export type ClientStatus = 'waiting' | 'assigned' | 'in_progress' | 'incomplete' | 'completed' | 'cancelled';
 export type ClientSex = 'male' | 'female';
 export type PendingComplaintType = 'NLRC' | 'DOLE Regional/Field Office' | 'NCMB' | 'DMW' | 'OWWA' | 'Others';
@@ -38,9 +40,6 @@ export interface Client {
   legal_advice: string | null;
   referred_office_id: number | null;
   referred_reason: string | null;
-
-  feedback_rating: number | null;
-  feedback_comments: string | null;
 
   email_sent_at: string | null;
 
@@ -106,4 +105,5 @@ export interface CompletedTransaction extends Client {
   city: string | null;
   province: string | null;
   company_city: string | null;
+  feedback: ClientFeedback | null;
 }

@@ -36,6 +36,9 @@ export default function LoginPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordChangeError, setPasswordChangeError] = useState('');
+  // True only for field-level problems (mismatch / unmet rules), which turn the inputs
+  // red. Server errors (e.g. a rate limit) show the message without flagging the fields.
+  const [passwordFieldsInvalid, setPasswordFieldsInvalid] = useState(false);
   const [showPasswordChecklist, setShowPasswordChecklist] = useState(false);
   const [code, setCode] = useState('');
   const [tempToken, setTempToken] = useState('');
@@ -103,15 +106,18 @@ export default function LoginPage() {
   async function handlePasswordChange(e: React.FormEvent) {
     e.preventDefault();
     setPasswordChangeError('');
+    setPasswordFieldsInvalid(false);
     const allRulesMet = PASSWORD_RULES.every((r) => r.test(newPassword));
     if (!allRulesMet) {
       setShowPasswordChecklist(true);
       setPasswordChangeError('Please meet all password requirements.');
+      setPasswordFieldsInvalid(true);
       fireShake();
       return;
     }
     if (newPassword !== confirmPassword) {
       setPasswordChangeError('Passwords do not match.');
+      setPasswordFieldsInvalid(true);
       fireShake();
       return;
     }
@@ -122,6 +128,8 @@ export default function LoginPage() {
       setConfirmPassword('');
       await routeAfterAuthStep(data);
     } catch (err) {
+      // Server-side failure (e.g. rate limit): show the message, but don't flag the
+      // password fields as invalid — they aren't the problem.
       setPasswordChangeError(err instanceof Error ? err.message : 'Could not change password.');
       fireShake();
     } finally {
@@ -362,7 +370,7 @@ export default function LoginPage() {
                         autoFocus
                         autoComplete="new-password"
                         disabled={loading}
-                        aria-invalid={!!passwordChangeError}
+                        aria-invalid={passwordFieldsInvalid}
                       />
                       {showPasswordChecklist && (
                         <ul className="list-unstyled mt-2 mb-0" style={{ fontSize: '0.8rem' }}>
@@ -378,7 +386,7 @@ export default function LoginPage() {
                         </ul>
                       )}
                     </div>
-                    <div className={`mb-2 pacu-auth-field${passwordChangeError ? ' is-error' : ''}`}>
+                    <div className={`mb-2 pacu-auth-field${passwordFieldsInvalid ? ' is-error' : ''}`}>
                       <label className="form-label" htmlFor="auth-confirm-password">
                         Confirm new password
                       </label>
@@ -391,7 +399,7 @@ export default function LoginPage() {
                         required
                         autoComplete="new-password"
                         disabled={loading}
-                        aria-invalid={!!passwordChangeError}
+                        aria-invalid={passwordFieldsInvalid}
                         aria-describedby={passwordChangeError ? 'auth-password-change-error' : undefined}
                       />
                     </div>

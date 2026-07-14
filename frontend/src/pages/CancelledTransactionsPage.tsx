@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
 import { clientService } from '../services/api';
 import type { Client } from '../types/client';
 
 function fmtDateTime(d: string): string {
   return new Date(d).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function isToday(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
 export default function CancelledTransactionsPage() {
@@ -14,6 +21,31 @@ export default function CancelledTransactionsPage() {
   const [search, setSearch] = useState('');
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
+
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const openMenuRowRef = useRef<Client | null>(null);
+
+  useEffect(() => {
+    if (openMenuId === null) return;
+    function close() { setOpenMenuId(null); }
+    document.addEventListener('click', close);
+    document.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('click', close);
+      document.removeEventListener('scroll', close, true);
+    };
+  }, [openMenuId]);
+
+  function toggleMenu(e: React.MouseEvent<HTMLButtonElement>, row: Client) {
+    e.stopPropagation();
+    if (openMenuId === row.client_id) { setOpenMenuId(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    openMenuRowRef.current = row;
+    setOpenMenuId(row.client_id);
+  }
 
   async function handleSearch() {
     setLoading(true);
@@ -40,6 +72,44 @@ export default function CancelledTransactionsPage() {
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
+
+  async function handleRestore(row: Client) {
+    setOpenMenuId(null);
+
+    if (!isToday(row.created_at)) {
+      await Swal.fire({
+        icon: 'info',
+        title: 'Cannot Restore',
+        text: 'This ticket was submitted on a previous date. Please ask the client to submit a new complaint ticket.',
+        confirmButtonColor: 'var(--pacu-accent)',
+      });
+      return;
+    }
+
+    const clientLabel = row.is_anonymous ? 'this anonymous client' : `${row.first_name} ${row.last_name}`;
+    const confirmed = await Swal.fire({
+      icon: 'question',
+      title: 'Restore to Queue?',
+      html: `<strong>${clientLabel}</strong> will be returned to the waiting queue.`,
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Restore',
+      confirmButtonColor: 'var(--pacu-accent)',
+      cancelButtonText: 'Cancel',
+    });
+    if (!confirmed.isConfirmed) return;
+
+    setRestoringId(row.client_id);
+    try {
+      await clientService.restoreToQueue(row.client_id);
+      Swal.fire({ icon: 'success', title: 'Client restored to queue', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+      setRows((prev) => prev.filter((r) => r.client_id !== row.client_id));
+      window.dispatchEvent(new Event('pacu:counts-changed'));
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Could not restore client', text: err instanceof Error ? err.message : 'Please try again' });
+    } finally {
+      setRestoringId(null);
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   useEffect(() => {
@@ -120,6 +190,7 @@ export default function CancelledTransactionsPage() {
                   <th>Client Name</th>
                   <th>Company Name</th>
                   <th>Reason</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,6 +214,38 @@ export default function CancelledTransactionsPage() {
                     </td>
                     <td className="text-muted">
                       {row.cancellation_reason || <span style={{ opacity: 0.4 }}>—</span>}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-light"
+                        disabled={restoringId === row.client_id}
+                        style={{ lineHeight: 1 }}
+                        onClick={(e) => toggleMenu(e, row)}
+                      >
+                        {restoringId === row.client_id
+                          ? <span className="spinner-border spinner-border-sm" />
+                          : <i className="bi bi-three-dots" />}
+                      </button>
+                      {openMenuId === row.client_id && createPortal(
+                        <ul
+                          className="dropdown-menu show shadow-sm"
+                          style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999, minWidth: 180 }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <li>
+                            <button
+                              type="button"
+                              className="dropdown-item d-flex align-items-center gap-2"
+                              onClick={() => handleRestore(openMenuRowRef.current!)}
+                            >
+                              <i className="bi bi-arrow-counterclockwise" />
+                              Restore to Queue
+                            </button>
+                          </li>
+                        </ul>,
+                        document.body
+                      )}
                     </td>
                   </tr>
                 ))}

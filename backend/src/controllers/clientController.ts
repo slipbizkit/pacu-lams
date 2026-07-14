@@ -5,7 +5,7 @@ import * as LookupService from '../services/lookupService';
 import { buildReferralPdf } from '../services/referralPdfService';
 import { sendConsultationSummary } from '../services/emailService';
 import { ConsultationBody, HistoryFilters, IntakeBody, ClientSex, PendingComplaintType } from '../types/client';
-import { SubmitFeedbackBody } from '../types/feedback';
+import { FeedbackAnswers, NA_ALLOWED_KEYS, SQD_KEYS, SubmitFeedbackBody } from '../types/feedback';
 
 const SEX_VALUES: ClientSex[] = ['male', 'female'];
 const PENDING_COMPLAINT_TYPE_VALUES: PendingComplaintType[] = [
@@ -194,6 +194,8 @@ export async function getDashboardCharts(req: AuthRequest, res: Response) {
 export async function listAllHistory(req: AuthRequest, res: Response) {
   const filters: HistoryFilters = {
     search: typeof req.query.search === 'string' ? req.query.search : undefined,
+    date_from: typeof req.query.date_from === 'string' ? req.query.date_from : undefined,
+    date_to: typeof req.query.date_to === 'string' ? req.query.date_to : undefined,
   };
   const history = await ClientService.listAllCompleted(filters);
   res.json(history);
@@ -204,6 +206,28 @@ export async function listCancelled(req: AuthRequest, res: Response) {
     search: typeof req.query.search === 'string' ? req.query.search : undefined,
   };
   const clients = await ClientService.listCancelledByLawyer(req.user!.id, filters);
+  res.json(clients);
+}
+
+export async function restoreToQueue(req: AuthRequest, res: Response) {
+  const clientId = Number(req.params.id);
+  if (!Number.isInteger(clientId)) return res.status(400).json({ message: 'Invalid client id' });
+
+  const result = await ClientService.restoreToQueue(clientId);
+  if ('error' in result) {
+    const status = result.error === 'not_found' ? 404 : 409;
+    return res.status(status).json({ message: result.error === 'not_found' ? 'Client not found' : 'Client is not in a cancelled state' });
+  }
+  res.json(result.client);
+}
+
+export async function listAllCancelled(req: AuthRequest, res: Response) {
+  const filters: HistoryFilters = {
+    search: typeof req.query.search === 'string' ? req.query.search : undefined,
+    date_from: typeof req.query.date_from === 'string' ? req.query.date_from : undefined,
+    date_to: typeof req.query.date_to === 'string' ? req.query.date_to : undefined,
+  };
+  const clients = await ClientService.listAllCancelled(filters);
   res.json(clients);
 }
 
@@ -237,7 +261,7 @@ export async function getFeedbackStatus(req: Request, res: Response) {
   res.json({
     first_name: client.first_name,
     status: client.status,
-    already_submitted: client.feedback_rating != null,
+    already_submitted: await ClientService.hasFeedback(client.client_id),
   });
 }
 
@@ -247,16 +271,39 @@ const FEEDBACK_ERROR_RESPONSES: Record<string, { status: number; message: string
   already_submitted: { status: 409, message: 'Feedback has already been submitted for this transaction' },
 };
 
-// Public — no auth. Rating/comments are the client's own words about their own visit.
+// Validate the CSM answer set. Every SQD item must be a whole number 1-5, except the
+// items in NA_ALLOWED_KEYS which may also be null ("Not Applicable"). Returns the
+// normalised answers, or an error message.
+function parseFeedbackAnswers(body: SubmitFeedbackBody): { answers: FeedbackAnswers } | { error: string } {
+  if (!body || typeof body !== 'object' || !body.answers || typeof body.answers !== 'object') {
+    return { error: 'Feedback answers are required' };
+  }
+  const answers = {} as FeedbackAnswers;
+  for (const key of SQD_KEYS) {
+    const value = body.answers[key];
+    if (value === null || value === undefined) {
+      if (NA_ALLOWED_KEYS.includes(key)) {
+        answers[key] = null;
+        continue;
+      }
+      return { error: `Please answer every question (missing ${key})` };
+    }
+    if (!Number.isInteger(value) || value < 1 || value > 5) {
+      return { error: 'Each answer must be a whole number from 1 to 5' };
+    }
+    answers[key] = value;
+  }
+  return { answers };
+}
+
+// Public — no auth. Answers/comments are the client's own words about their own visit.
 export async function submitFeedback(req: Request, res: Response) {
   const referenceNo = req.params.referenceNo;
-  const body = req.body as SubmitFeedbackBody;
+  const parsed = parseFeedbackAnswers(req.body as SubmitFeedbackBody);
+  if ('error' in parsed) return res.status(400).json({ message: parsed.error });
 
-  if (!Number.isInteger(body.rating) || body.rating < 1 || body.rating > 5) {
-    return res.status(400).json({ message: 'Rating must be a whole number from 1 to 5' });
-  }
-
-  const result = await ClientService.submitFeedback(referenceNo, body.rating, body.comments?.trim() || null);
+  const comments = (req.body as SubmitFeedbackBody).comments?.trim() || null;
+  const result = await ClientService.submitFeedbackByReferenceNo(referenceNo, parsed.answers, comments);
 
   if ('error' in result) {
     const { status, message } = FEEDBACK_ERROR_RESPONSES[result.error];
@@ -264,6 +311,31 @@ export async function submitFeedback(req: Request, res: Response) {
   }
 
   res.json({ message: 'Thank you for your feedback' });
+}
+
+// Authed — support staff / personnel / admin encode a paper feedback form.
+export async function encodeFeedback(req: AuthRequest, res: Response) {
+  const clientId = Number(req.params.id);
+  if (!Number.isInteger(clientId)) {
+    return res.status(400).json({ message: 'Invalid client id' });
+  }
+
+  const parsed = parseFeedbackAnswers(req.body as SubmitFeedbackBody);
+  if ('error' in parsed) return res.status(400).json({ message: parsed.error });
+
+  const comments = (req.body as SubmitFeedbackBody).comments?.trim() || null;
+  const result = await ClientService.submitFeedbackByClientId(clientId, parsed.answers, comments, req.user!.id);
+
+  if ('error' in result) {
+    const errorResponses: Record<string, { status: number; message: string }> = {
+      ...FEEDBACK_ERROR_RESPONSES,
+      not_found: { status: 404, message: 'Transaction not found' },
+    };
+    const { status, message } = errorResponses[result.error];
+    return res.status(status).json({ message });
+  }
+
+  res.json({ message: 'Feedback recorded', feedback: result.feedback });
 }
 
 export async function listHistory(req: AuthRequest, res: Response) {

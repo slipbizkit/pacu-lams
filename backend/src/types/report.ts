@@ -27,4 +27,26 @@ export interface MonthlyReport {
 
   // Lawyer productivity
   by_lawyer: CountItem[];
+
+  // Client Satisfaction Measurement (CSM)
+  feedback: FeedbackReport;
+}
+
+export interface FeedbackQuestionStat {
+  key: string;        // sqd1..sqd10
+  number: number;     // 1..10
+  statement: string;
+  group: string;      // thematic category
+  average: number;    // mean rating 1-5 (0 when no responses)
+  responses: number;  // answered count (excludes N/A)
+}
+
+export interface FeedbackReport {
+  responses: number;         // feedback submissions for the month's completed transactions
+  eligible: number;          // completed transactions in the month (feedback was possible)
+  response_rate: number;     // responses / eligible * 100
+  overall_average: number;   // mean rating across all answered items, 1-5
+  satisfaction_rate: number; // % of answered items rated 4-5 (Agree / Strongly Agree)
+  by_question: FeedbackQuestionStat[];
+  distribution: { rating: number; count: number }[]; // rating 1..5, count of answered items
 }

@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
 import { clientService } from '../services/api';
-import type { ClientFeedback, CompletedTransaction } from '../types/client';
-import { EncodeFeedbackModal } from '../components/EncodeFeedbackModal';
+import type { Client } from '../types/client';
+
+type CancelledRow = Client & { cancelled_by_name: string | null };
 
 function fmtDate(d: string): string {
   return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-// June 2026 is the earliest available month
+function isToday(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+
 const EARLIEST = { year: 2026, month: 6 };
 
 function buildMonthOptions(): { value: string; label: string }[] {
@@ -40,26 +47,40 @@ function currentMonthValue(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export default function SupportStaffHistoryPage() {
+export default function PersonnelCancelledPage() {
   const MONTH_OPTIONS = useMemo(() => buildMonthOptions(), []);
 
-  const [rows, setRows] = useState<CompletedTransaction[]>([]);
+  const [rows, setRows] = useState<CancelledRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [encodingRow, setEncodingRow] = useState<CompletedTransaction | null>(null);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
 
-  function handleFeedbackSaved(clientId: number, feedback: ClientFeedback) {
-    setRows((prev) => prev.map((r) => (r.client_id === clientId ? { ...r, feedback } : r)));
-    setEncodingRow(null);
-  }
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const openMenuRowRef = useRef<CancelledRow | null>(null);
 
-  function rowName(row: CompletedTransaction): string {
-    if (row.is_anonymous) return 'Anonymous';
-    return `${row.first_name} ${row.last_name}`;
+  useEffect(() => {
+    if (openMenuId === null) return;
+    function close() { setOpenMenuId(null); }
+    document.addEventListener('click', close);
+    document.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('click', close);
+      document.removeEventListener('scroll', close, true);
+    };
+  }, [openMenuId]);
+
+  function toggleMenu(e: React.MouseEvent<HTMLButtonElement>, row: CancelledRow) {
+    e.stopPropagation();
+    if (openMenuId === row.client_id) { setOpenMenuId(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    openMenuRowRef.current = row;
+    setOpenMenuId(row.client_id);
   }
 
   async function handleSearch() {
@@ -68,13 +89,13 @@ export default function SupportStaffHistoryPage() {
     setCurrentPage(1);
     try {
       const dateRange = monthToDateRange(selectedMonth);
-      const data = await clientService.listAllHistory({
+      const data = await clientService.listAllCancelled({
         search: search || undefined,
         ...dateRange,
       });
       setRows(data);
     } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Could not load completed transactions', text: err instanceof Error ? err.message : 'Please try again' });
+      Swal.fire({ icon: 'error', title: 'Could not load cancelled transactions', text: err instanceof Error ? err.message : 'Please try again' });
     } finally {
       setLoading(false);
     }
@@ -91,6 +112,44 @@ export default function SupportStaffHistoryPage() {
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, selectedMonth]);
+
+  async function handleRestore(row: CancelledRow) {
+    setOpenMenuId(null);
+
+    if (!isToday(row.created_at)) {
+      await Swal.fire({
+        icon: 'info',
+        title: 'Cannot Restore',
+        text: 'This ticket was submitted on a previous date. Please ask the client to submit a new complaint ticket.',
+        confirmButtonColor: 'var(--pacu-accent)',
+      });
+      return;
+    }
+
+    const clientLabel = row.is_anonymous ? 'this anonymous client' : `${row.first_name} ${row.last_name}`;
+    const confirmed = await Swal.fire({
+      icon: 'question',
+      title: 'Restore to Queue?',
+      html: `<strong>${clientLabel}</strong> will be returned to the waiting queue.`,
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Restore',
+      confirmButtonColor: 'var(--pacu-accent)',
+      cancelButtonText: 'Cancel',
+    });
+    if (!confirmed.isConfirmed) return;
+
+    setRestoringId(row.client_id);
+    try {
+      await clientService.restoreToQueue(row.client_id);
+      Swal.fire({ icon: 'success', title: 'Client restored to queue', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+      setRows((prev) => prev.filter((r) => r.client_id !== row.client_id));
+      window.dispatchEvent(new Event('pacu:counts-changed'));
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Could not restore client', text: err instanceof Error ? err.message : 'Please try again' });
+    } finally {
+      setRestoringId(null);
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   useEffect(() => {
@@ -113,10 +172,10 @@ export default function SupportStaffHistoryPage() {
   return (
     <div>
       <div className="d-flex align-items-center justify-content-between mb-1">
-        <h1 className="pacu-display mb-0">Completed Transactions</h1>
+        <h1 className="pacu-display mb-0">Cancelled Transactions</h1>
       </div>
       <p className="text-muted mb-4" style={{ fontSize: '0.9rem' }}>
-        All completed transactions system-wide.
+        All cancelled transactions system-wide.
       </p>
 
       <div className="card mb-4">
@@ -167,7 +226,7 @@ export default function SupportStaffHistoryPage() {
         <div className="card">
           <div className="card-body p-5 text-center text-muted">
             <i className="bi bi-inbox fs-2 d-block mb-2" />
-            No completed transactions found.
+            No cancelled transactions found.
           </div>
         </div>
       ) : (
@@ -176,18 +235,21 @@ export default function SupportStaffHistoryPage() {
             <table className="table mb-0 align-middle" style={{ fontSize: '0.85rem' }}>
               <thead>
                 <tr>
-                  <th className="ps-4">Completion Date</th>
+                  <th className="ps-4">Submitted Date</th>
+                  <th>Cancellation Date</th>
                   <th>Reference No.</th>
                   <th>Client Name</th>
                   <th>Company</th>
-                  <th>Lawyer</th>
+                  <th>Cancelled By</th>
+                  <th>Reason</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.map((row) => (
                   <tr key={row.client_id}>
-                    <td className="ps-4" style={{ whiteSpace: 'nowrap' }}>{fmtDate(row.updated_at)}</td>
+                    <td className="ps-4" style={{ whiteSpace: 'nowrap' }}>{fmtDate(row.created_at)}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(row.updated_at)}</td>
                     <td><span className="pacu-mono fw-semibold">{row.reference_no}</span></td>
                     <td>
                       <span className="d-flex align-items-center gap-2">
@@ -206,38 +268,39 @@ export default function SupportStaffHistoryPage() {
                           ? <><i className="bi bi-incognito text-muted me-1" /><span className="fst-italic">Anonymous</span></>
                           : <span style={{ opacity: 0.4 }}>—</span>}
                     </td>
-                    <td className="text-muted">{row.lawyer_name || <span style={{ opacity: 0.4 }}>—</span>}</td>
+                    <td className="text-muted">{row.cancelled_by_name || <span style={{ opacity: 0.4 }}>—</span>}</td>
+                    <td className="text-muted">{row.cancellation_reason || <span style={{ opacity: 0.4 }}>—</span>}</td>
                     <td>
-                      <div className="dropdown">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-light"
-                          data-bs-toggle="dropdown"
-                          aria-expanded="false"
-                          style={{ lineHeight: 1 }}
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-light"
+                        disabled={restoringId === row.client_id}
+                        style={{ lineHeight: 1 }}
+                        onClick={(e) => toggleMenu(e, row)}
+                      >
+                        {restoringId === row.client_id
+                          ? <span className="spinner-border spinner-border-sm" />
+                          : <i className="bi bi-three-dots" />}
+                      </button>
+                      {openMenuId === row.client_id && createPortal(
+                        <ul
+                          className="dropdown-menu show shadow-sm"
+                          style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999, minWidth: 180 }}
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <i className="bi bi-three-dots" />
-                        </button>
-                        <ul className="dropdown-menu dropdown-menu-end">
                           <li>
-                            {row.feedback ? (
-                              <span className="dropdown-item d-flex align-items-center gap-2 text-success" style={{ cursor: 'default' }}>
-                                <i className="bi bi-check-circle" />
-                                Feedback recorded
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="dropdown-item d-flex align-items-center gap-2"
-                                onClick={() => setEncodingRow(row)}
-                              >
-                                <i className="bi bi-pencil-square text-muted" />
-                                Manually Encode Feedback
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              className="dropdown-item d-flex align-items-center gap-2"
+                              onClick={() => handleRestore(openMenuRowRef.current!)}
+                            >
+                              <i className="bi bi-arrow-counterclockwise" />
+                              Restore to Queue
+                            </button>
                           </li>
-                        </ul>
-                      </div>
+                        </ul>,
+                        document.body
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -251,9 +314,9 @@ export default function SupportStaffHistoryPage() {
             </span>
             <div className="d-flex align-items-center gap-3 flex-wrap">
               <div className="d-flex align-items-center gap-2">
-                <label htmlFor="pacu-ss-history-page-size" className="text-muted mb-0">Rows per page</label>
+                <label htmlFor="pacu-personnel-cancelled-page-size" className="text-muted mb-0">Rows per page</label>
                 <select
-                  id="pacu-ss-history-page-size"
+                  id="pacu-personnel-cancelled-page-size"
                   className="form-select form-select-sm"
                   style={{ width: 'auto' }}
                   value={pageSize}
@@ -264,7 +327,7 @@ export default function SupportStaffHistoryPage() {
                 </select>
               </div>
               {totalPages > 1 && (
-                <nav aria-label="Completed transactions pagination">
+                <nav aria-label="Cancelled transactions pagination">
                   <ul className="pagination pagination-sm mb-0">
                     <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
                       <button type="button" className="page-link" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><i className="bi bi-chevron-bar-left" /></button>
@@ -289,16 +352,6 @@ export default function SupportStaffHistoryPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {encodingRow && (
-        <EncodeFeedbackModal
-          clientId={encodingRow.client_id}
-          clientName={rowName(encodingRow)}
-          referenceNo={encodingRow.reference_no}
-          onClose={() => setEncodingRow(null)}
-          onSaved={(feedback) => handleFeedbackSaved(encodingRow.client_id, feedback)}
-        />
       )}
     </div>
   );

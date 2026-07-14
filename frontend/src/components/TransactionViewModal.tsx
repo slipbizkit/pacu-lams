@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { clientService } from '../services/api';
+import { SQD_KEYS } from '../types/client';
 import type { CompletedTransaction, IssueTag } from '../types/client';
+import { SQD_STATEMENTS } from './FeedbackQuestions';
 
 interface TransactionViewModalProps {
   transaction: CompletedTransaction;
@@ -199,20 +201,36 @@ export function TransactionViewModal({ transaction: tx, onClose }: TransactionVi
                 </>
               )}
 
-              {/* Client Feedback */}
-              {tx.feedback_rating != null && (
+              {/* Client Satisfaction Feedback */}
+              {tx.feedback && (
                 <>
-                  <p className="pacu-eyebrow mb-3">Client Feedback</p>
+                  <p className="pacu-eyebrow mb-3">
+                    Client Satisfaction Feedback
+                    <span className="text-muted fw-normal ms-2" style={{ fontSize: '0.7rem', textTransform: 'none', letterSpacing: 0 }}>
+                      {tx.feedback.submitted_via === 'manual' ? 'Manually encoded' : 'Submitted online'}
+                    </span>
+                  </p>
                   <div className="mb-4 p-3" style={{ backgroundColor: 'var(--pacu-bg)', borderRadius: 'var(--pacu-radius)' }}>
-                    <div className="d-flex align-items-center gap-2 mb-2">
-                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Rating:</span>
-                      <span style={{ color: 'var(--pacu-accent)', fontSize: '1.1rem', letterSpacing: 1 }}>
-                        {'★'.repeat(tx.feedback_rating)}{'☆'.repeat(5 - tx.feedback_rating)}
-                      </span>
-                      <span className="text-muted" style={{ fontSize: '0.85rem' }}>({tx.feedback_rating}/5)</span>
-                    </div>
-                    {tx.feedback_comments && (
-                      <p className="mb-0" style={{ fontSize: '0.9rem' }}>{tx.feedback_comments}</p>
+                    {SQD_KEYS.map((key, i) => {
+                      const value = tx.feedback![key];
+                      return (
+                        <div
+                          key={key}
+                          className="d-flex justify-content-between align-items-start gap-3 py-2"
+                          style={{ fontSize: '0.85rem', borderTop: i > 0 ? '1px solid var(--pacu-border)' : undefined }}
+                        >
+                          <span className="text-muted">{i + 1}. {SQD_STATEMENTS[i]}</span>
+                          <span className="fw-semibold" style={{ whiteSpace: 'nowrap', color: 'var(--pacu-accent)' }}>
+                            {value == null ? 'N/A' : `${value} / 5`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {tx.feedback.comments && (
+                      <p className="mb-0 mt-3 pt-3" style={{ fontSize: '0.9rem', borderTop: '1px solid var(--pacu-border)' }}>
+                        <span className="pacu-eyebrow d-block mb-1" style={{ fontSize: '0.65rem' }}>Comments</span>
+                        {tx.feedback.comments}
+                      </p>
                     )}
                   </div>
                 </>

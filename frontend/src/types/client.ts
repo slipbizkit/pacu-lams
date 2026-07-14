@@ -55,9 +55,6 @@ export interface Client {
   referred_office_id: number | null;
   referred_reason: string | null;
 
-  feedback_rating: number | null;
-  feedback_comments: string | null;
-
   email_sent_at: string | null;
 
   status: ClientStatus;
@@ -80,6 +77,7 @@ export interface CompletedTransaction extends Client {
   province: string | null;
   company_city: string | null;
   lawyer_name: string | null;
+  feedback: ClientFeedback | null;
 }
 
 export interface ActivityItem {
@@ -226,6 +224,26 @@ export interface MonthlyReport {
   by_priority: CountItem[];
   by_city: CountItem[];
   by_lawyer: CountItem[];
+  feedback: FeedbackReport;
+}
+
+export interface FeedbackQuestionStat {
+  key: string;
+  number: number;
+  statement: string;
+  group: string;
+  average: number;
+  responses: number;
+}
+
+export interface FeedbackReport {
+  responses: number;
+  eligible: number;
+  response_rate: number;
+  overall_average: number;
+  satisfaction_rate: number;
+  by_question: FeedbackQuestionStat[];
+  distribution: { rating: number; count: number }[];
 }
 
 export interface FeedbackStatus {
@@ -234,8 +252,40 @@ export interface FeedbackStatus {
   already_submitted: boolean;
 }
 
+// Client Satisfaction Measurement survey — 10 fixed Service Quality Dimension items.
+export const SQD_KEYS = [
+  'sqd1', 'sqd2', 'sqd3', 'sqd4', 'sqd5',
+  'sqd6', 'sqd7', 'sqd8', 'sqd9', 'sqd10',
+] as const;
+
+export type SqdKey = (typeof SQD_KEYS)[number];
+
+// Only sqd6 (online/communication support) may be null ("Not Applicable").
+export const NA_ALLOWED_KEYS: SqdKey[] = ['sqd6'];
+
+export type FeedbackAnswers = Record<SqdKey, number | null>;
+
 export interface SubmitFeedbackBody {
-  rating: number;
+  answers: FeedbackAnswers;
   comments?: string;
+}
+
+export interface ClientFeedback {
+  feedback_id: number;
+  client_id: number;
+  sqd1: number;
+  sqd2: number;
+  sqd3: number;
+  sqd4: number;
+  sqd5: number;
+  sqd6: number | null;
+  sqd7: number;
+  sqd8: number;
+  sqd9: number;
+  sqd10: number;
+  comments: string | null;
+  submitted_via: 'online' | 'manual';
+  encoded_by: number | null;
+  submitted_at: string;
 }
 

@@ -124,6 +124,17 @@ function buildHtml(params: {
           <!-- Divider -->
           <tr><td style="padding:0 40px;"><div style="height:1px;background:#e5e7eb;"></div></td></tr>
 
+          <!-- Client satisfaction survey CTA -->
+          <tr>
+            <td style="padding:28px 40px 8px;" align="center">
+              <p style="margin:0 0 4px;font-size:15px;font-weight:600;color:#111827;">How did we do?</p>
+              <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.6;">
+                Your feedback helps us improve our service. Please take a moment to rate your experience.
+              </p>
+              <a href="${APP_URL}/feedback?ref=${encodeURIComponent(referenceNo)}" style="display:inline-block;background:#1a3a8f;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:6px;">Answer the Feedback Survey</a>
+            </td>
+          </tr>
+
           <!-- Footer note -->
           <tr>
             <td style="padding:24px 40px 36px;">

@@ -1,7 +1,30 @@
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import sql from '../db';
-import { CountItem, MonthlyReport } from '../types/report';
+import { doleLogoPng } from '../assets/doleLogo';
+import { CountItem, FeedbackQuestionStat, FeedbackReport, MonthlyReport } from '../types/report';
+import { SQD_KEYS } from '../types/feedback';
+
+// CSM statements and their thematic grouping, sqd1..sqd10 in order. Kept alongside the
+// report builder because that's the only backend consumer that needs the wording.
+const SQD_STATEMENTS: string[] = [
+  'I am satisfied with the legal assistance/service that I received.',
+  'I spent a reasonable amount of time completing my transaction.',
+  'The office followed the required procedures and clearly explained the process.',
+  'The steps required for my transaction were easy to understand and follow.',
+  'I was able to easily find information about my transaction through official channels.',
+  'The office’s online or communication support responded promptly to my inquiries.',
+  'I received the assistance I needed, or the reason it could not be granted was explained.',
+  'The personnel who assisted me were courteous, respectful, and professional.',
+  'The legal advice or information provided was clear, accurate, and easy to understand.',
+  'I am confident the assistance helped me understand my rights and options.',
+];
+
+const SQD_GROUP_OF: string[] = [
+  'Service Delivery', 'Service Delivery', 'Service Delivery', 'Service Delivery',
+  'Information & Communication', 'Information & Communication',
+  'Service Outcome', 'Staff Professionalism', 'Clarity of Advice', 'Confidence',
+];
 
 const STATUS_LABELS: Record<string, string> = {
   waiting: 'Waiting',
@@ -37,6 +60,9 @@ export async function getMonthlyReport(month: string): Promise<MonthlyReport> {
     priorityRows,
     cityRows,
     lawyerRows,
+    fbCountRows,
+    fbQuestionRows,
+    fbDistRows,
   ] = await Promise.all([
     sql`
       SELECT COUNT(*)::int AS total
@@ -130,6 +156,46 @@ export async function getMonthlyReport(month: string): Promise<MonthlyReport> {
       GROUP BY u.user_id, u.first_name, u.last_name
       ORDER BY count DESC, name
     `,
+    // Feedback: number of CSM submissions for the month's completed transactions.
+    sql`
+      SELECT COUNT(*)::int AS responses
+      FROM client_feedback cf
+      JOIN clients c ON c.client_id = cf.client_id
+      WHERE c.transaction_date >= ${start}::date
+        AND c.transaction_date < ${start}::date + INTERVAL '1 month'
+        AND c.status = 'completed'
+    `,
+    // Feedback: per-question average and answered count (N/A excluded).
+    sql`
+      SELECT v.qkey AS key, ROUND(AVG(v.val)::numeric, 2)::float8 AS average, COUNT(v.val)::int AS responses
+      FROM client_feedback cf
+      JOIN clients c ON c.client_id = cf.client_id
+      CROSS JOIN LATERAL (VALUES
+        ('sqd1', cf.sqd1), ('sqd2', cf.sqd2), ('sqd3', cf.sqd3), ('sqd4', cf.sqd4), ('sqd5', cf.sqd5),
+        ('sqd6', cf.sqd6), ('sqd7', cf.sqd7), ('sqd8', cf.sqd8), ('sqd9', cf.sqd9), ('sqd10', cf.sqd10)
+      ) v(qkey, val)
+      WHERE c.transaction_date >= ${start}::date
+        AND c.transaction_date < ${start}::date + INTERVAL '1 month'
+        AND c.status = 'completed'
+        AND v.val IS NOT NULL
+      GROUP BY v.qkey
+    `,
+    // Feedback: distribution of all answered item ratings (1-5).
+    sql`
+      SELECT v.val AS rating, COUNT(*)::int AS count
+      FROM client_feedback cf
+      JOIN clients c ON c.client_id = cf.client_id
+      CROSS JOIN LATERAL (VALUES
+        (cf.sqd1), (cf.sqd2), (cf.sqd3), (cf.sqd4), (cf.sqd5),
+        (cf.sqd6), (cf.sqd7), (cf.sqd8), (cf.sqd9), (cf.sqd10)
+      ) v(val)
+      WHERE c.transaction_date >= ${start}::date
+        AND c.transaction_date < ${start}::date + INTERVAL '1 month'
+        AND c.status = 'completed'
+        AND v.val IS NOT NULL
+      GROUP BY v.val
+      ORDER BY v.val
+    `,
   ]);
 
   const priority = priorityRows[0] as { senior: number; pwd: number; pregnant: number };
@@ -138,6 +204,13 @@ export async function getMonthlyReport(month: string): Promise<MonthlyReport> {
     { name: 'PWD', count: priority.pwd },
     { name: 'Pregnant', count: priority.pregnant },
   ].filter((p) => p.count > 0);
+
+  const feedback = buildFeedbackReport(
+    (fbCountRows[0] as { responses: number }).responses,
+    (statusRows as CountItem[]).find((s) => s.name === 'completed')?.count ?? 0,
+    fbQuestionRows as { key: string; average: number; responses: number }[],
+    fbDistRows as { rating: number; count: number }[],
+  );
 
   return {
     month,
@@ -155,6 +228,47 @@ export async function getMonthlyReport(month: string): Promise<MonthlyReport> {
     by_priority,
     by_city: cityRows as CountItem[],
     by_lawyer: lawyerRows as CountItem[],
+    feedback,
+  };
+}
+
+// Assembles the CSM feedback section from the raw aggregate rows.
+function buildFeedbackReport(
+  responses: number,
+  eligible: number,
+  questionRows: { key: string; average: number; responses: number }[],
+  distRows: { rating: number; count: number }[],
+): FeedbackReport {
+  const byKey = new Map(questionRows.map((r) => [r.key, r]));
+  const by_question: FeedbackQuestionStat[] = SQD_KEYS.map((key, i) => {
+    const row = byKey.get(key);
+    return {
+      key,
+      number: i + 1,
+      statement: SQD_STATEMENTS[i],
+      group: SQD_GROUP_OF[i],
+      average: row ? Number(row.average) : 0,
+      responses: row ? row.responses : 0,
+    };
+  });
+
+  const distribution = [1, 2, 3, 4, 5].map((rating) => ({
+    rating,
+    count: distRows.find((d) => Number(d.rating) === rating)?.count ?? 0,
+  }));
+
+  const totalItems = distribution.reduce((sum, d) => sum + d.count, 0);
+  const weighted = distribution.reduce((sum, d) => sum + d.rating * d.count, 0);
+  const satisfied = distribution.filter((d) => d.rating >= 4).reduce((sum, d) => sum + d.count, 0);
+
+  return {
+    responses,
+    eligible,
+    response_rate: eligible > 0 ? Math.round((responses / eligible) * 1000) / 10 : 0,
+    overall_average: totalItems > 0 ? Math.round((weighted / totalItems) * 100) / 100 : 0,
+    satisfaction_rate: totalItems > 0 ? Math.round((satisfied / totalItems) * 1000) / 10 : 0,
+    by_question,
+    distribution,
   };
 }
 
@@ -195,6 +309,27 @@ export async function buildExcelBuffer(report: MonthlyReport): Promise<Buffer> {
   section('Top Cities / Municipalities', ['City / Municipality', 'Count'], report.by_city);
   section('Lawyer Productivity', ['Lawyer', 'Count'], report.by_lawyer);
 
+  // Client Satisfaction Measurement
+  const fb = report.feedback;
+  const fbHead = sheet.addRow(['Client Satisfaction Measurement']);
+  fbHead.font = { bold: true, size: 12 };
+  sheet.addRow(['Responses', fb.responses]);
+  sheet.addRow(['Eligible (completed)', fb.eligible]);
+  sheet.addRow(['Response rate', `${fb.response_rate}%`]);
+  sheet.addRow(['Overall score (out of 5)', fb.overall_average]);
+  sheet.addRow(['Satisfaction rate (4-5)', `${fb.satisfaction_rate}%`]);
+  sheet.addRow([]);
+
+  const perQ = sheet.addRow(['Average by Question', 'Average', 'Responses', 'Group']);
+  perQ.font = { bold: true };
+  if (fb.responses === 0) {
+    sheet.addRow(['(no responses this month)', '', '', '']);
+  } else {
+    for (const q of fb.by_question) {
+      sheet.addRow([`${q.number}. ${q.statement}`, q.average, q.responses, q.group]);
+    }
+  }
+
   const arrayBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer);
 }
@@ -208,7 +343,18 @@ const PDF = {
   zebra: '#f4f6f9',
   cardBg: '#eef2f8',
   white: '#ffffff',
+  track: '#e5e9f0',
+  good: '#16a34a',
+  warn: '#d97706',
+  bad: '#dc2626',
 };
+
+// Bar colour by average rating: green (agree), amber (neutral), red (disagree).
+function ratingColor(value: number): string {
+  if (value >= 4) return PDF.good;
+  if (value >= 3) return PDF.warn;
+  return PDF.bad;
+}
 
 function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -233,12 +379,22 @@ export function buildPdfBuffer(report: MonthlyReport): Promise<Buffer> {
     let y = doc.page.margins.top;
 
     // --- Header -----------------------------------------------------------
-    doc.fillColor(PDF.muted).font('Helvetica').fontSize(9)
-      .text('Department of Labor and Employment', left, y);
-    y += 13;
-    doc.fillColor(PDF.muted).font('Helvetica').fontSize(9)
-      .text('Public Assistance and Complaints Unit', left, y);
-    y += 18;
+    // Letterhead: department logo on the left, agency name stacked to its right
+    // (Department of Labor and Employment over Public Assistance and Complaints Unit).
+    const logoSize = 56;
+    try {
+      doc.image(doleLogoPng, left, doc.page.margins.top, { fit: [logoSize, logoSize] });
+    } catch { /* logo optional */ }
+
+    const orgX = left + logoSize + 14;
+    const orgW = right - orgX;
+    const orgTop = doc.page.margins.top + 14;
+    doc.fillColor(PDF.navy).font('Helvetica-Bold').fontSize(12)
+      .text('Department of Labor and Employment', orgX, orgTop, { width: orgW, lineBreak: false });
+    doc.fillColor(PDF.muted).font('Helvetica').fontSize(10)
+      .text('Public Assistance and Complaints Unit', orgX, orgTop + 17, { width: orgW, lineBreak: false });
+
+    y = doc.page.margins.top + logoSize + 16;
     doc.fillColor(PDF.navy).font('Helvetica-Bold').fontSize(19)
       .text('Monthly Accomplishment Report', left, y);
     y += 26;
@@ -253,7 +409,7 @@ export function buildPdfBuffer(report: MonthlyReport): Promise<Buffer> {
     const statusMap: Record<string, number> = {};
     for (const s of report.by_status) statusMap[s.name] = s.count;
     const cards: [string, number][] = [
-      ['Total accomplishments', report.total],
+      ['Total submissions', report.total],
       ['Completed', statusMap['completed'] ?? 0],
       ['Cancelled', statusMap['cancelled'] ?? 0],
     ];
@@ -329,6 +485,108 @@ export function buildPdfBuffer(report: MonthlyReport): Promise<Buffer> {
     drawTable('Priority groups', ['Group', 'Count'], report.by_priority);
     drawTable('Top cities / municipalities', ['City / Municipality', 'Count'], report.by_city);
     drawTable('Accomplishments by lawyer', ['Lawyer', 'Transactions'], report.by_lawyer);
+
+    // --- Client Satisfaction Measurement ---------------------------------
+    drawFeedbackSection();
+
+    function sectionHeading(title: string, minSpace = 120) {
+      if (y + minSpace > bottomLimit()) { doc.addPage(); y = doc.page.margins.top; }
+      doc.fillColor(PDF.navyDark).font('Helvetica-Bold').fontSize(12).text(title, left, y);
+      y += 18;
+    }
+
+    // A labelled horizontal bar scaled to `max`; colour reflects the value.
+    function drawScoreBar(label: string, value: number, responses: number, max = 5) {
+      const rowH = 30;
+      if (y + rowH > bottomLimit()) { doc.addPage(); y = doc.page.margins.top; }
+      const valueColW = 42;
+      const trackX = left;
+      const trackW = contentW - valueColW;
+      doc.fillColor(PDF.ink).font('Helvetica').fontSize(8)
+        .text(label, left, y, { width: trackW, ellipsis: true, lineBreak: false });
+      const barY = y + 13;
+      const barH = 9;
+      doc.roundedRect(trackX, barY, trackW, barH, 2).fillColor(PDF.track).fill();
+      const filled = Math.max(0, Math.min(1, value / max)) * trackW;
+      if (filled > 0) doc.roundedRect(trackX, barY, filled, barH, 2).fillColor(ratingColor(value)).fill();
+      doc.fillColor(PDF.ink).font('Helvetica-Bold').fontSize(9)
+        .text(value ? value.toFixed(2) : '—', trackX + trackW + 6, barY - 1, { width: valueColW, align: 'right', lineBreak: false });
+      doc.fillColor(PDF.muted).font('Helvetica').fontSize(7)
+        .text(`${responses} response${responses === 1 ? '' : 's'}`, trackX + trackW - 120, y, { width: 120, align: 'right', lineBreak: false });
+      y += rowH;
+    }
+
+    function drawFeedbackSection() {
+      const fb = report.feedback;
+      sectionHeading('Client Satisfaction Measurement');
+
+      // Summary cards
+      const fbCards: [string, string][] = [
+        ['Responses', `${fb.responses} / ${fb.eligible}`],
+        ['Response rate', `${fb.response_rate}%`],
+        ['Overall score', `${fb.overall_average.toFixed(2)} / 5`],
+        ['Satisfaction (4-5)', `${fb.satisfaction_rate}%`],
+      ];
+      const g = 10;
+      const cw = (contentW - g * 3) / 4;
+      const ch = 50;
+      if (y + ch > bottomLimit()) { doc.addPage(); y = doc.page.margins.top; }
+      fbCards.forEach(([label, value], i) => {
+        const x = left + i * (cw + g);
+        doc.roundedRect(x, y, cw, ch, 6).fillColor(PDF.cardBg).fill();
+        doc.roundedRect(x, y, cw, ch, 6).lineWidth(0.5).strokeColor(PDF.border).stroke();
+        doc.fillColor(PDF.muted).font('Helvetica').fontSize(7).text(label.toUpperCase(), x + 10, y + 9, { width: cw - 20 });
+        doc.fillColor(PDF.navy).font('Helvetica-Bold').fontSize(15).text(value, x + 10, y + 22, { width: cw - 20, lineBreak: false });
+      });
+      y += ch + 20;
+
+      if (fb.responses === 0) {
+        doc.fillColor(PDF.muted).font('Helvetica-Oblique').fontSize(9)
+          .text('No feedback responses for this month.', left, y, { width: contentW, lineBreak: false });
+        y += 24;
+        return;
+      }
+
+      // Average score by question, grouped by category
+      doc.fillColor(PDF.ink).font('Helvetica-Bold').fontSize(10).text('Average score by question (out of 5)', left, y);
+      y += 16;
+      let currentGroup = '';
+      for (const q of fb.by_question) {
+        if (q.group !== currentGroup) {
+          currentGroup = q.group;
+          if (y + 26 > bottomLimit()) { doc.addPage(); y = doc.page.margins.top; }
+          doc.fillColor(PDF.navy).font('Helvetica-Bold').fontSize(8)
+            .text(currentGroup.toUpperCase(), left, y, { characterSpacing: 0.5, lineBreak: false });
+          y += 13;
+        }
+        drawScoreBar(`${q.number}. ${q.statement}`, q.average, q.responses);
+      }
+      y += 8;
+
+      // Rating distribution
+      sectionHeading('Rating distribution', 90);
+      const distLabels: Record<number, string> = {
+        5: '5 · Strongly Agree', 4: '4 · Agree', 3: '3 · Neither', 2: '2 · Disagree', 1: '1 · Strongly Disagree',
+      };
+      const maxCount = Math.max(...fb.distribution.map((d) => d.count), 1);
+      [...fb.distribution].reverse().forEach((d) => {
+        const rowH = 20;
+        if (y + rowH > bottomLimit()) { doc.addPage(); y = doc.page.margins.top; }
+        const labelW = 130;
+        const valueColW = 40;
+        const trackX = left + labelW;
+        const trackW = contentW - labelW - valueColW;
+        doc.fillColor(PDF.ink).font('Helvetica').fontSize(8)
+          .text(distLabels[d.rating], left, y + 4, { width: labelW - 8, lineBreak: false });
+        doc.roundedRect(trackX, y + 3, trackW, 10, 2).fillColor(PDF.track).fill();
+        const w = (d.count / maxCount) * trackW;
+        if (w > 0) doc.roundedRect(trackX, y + 3, w, 10, 2).fillColor(ratingColor(d.rating)).fill();
+        doc.fillColor(PDF.ink).font('Helvetica-Bold').fontSize(8)
+          .text(String(d.count), trackX + trackW + 6, y + 4, { width: valueColW, align: 'right', lineBreak: false });
+        y += rowH;
+      });
+      y += 10;
+    }
 
     // --- Footer (page numbers) -------------------------------------------
     const range = doc.bufferedPageRange();

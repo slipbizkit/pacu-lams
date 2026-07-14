@@ -1,5 +1,6 @@
 import sql from '../db';
 import { Client, CompletedTransaction, ConsultationBody, HistoryFilters, IntakeBody, IssueTag } from '../types/client';
+import { ClientFeedback, FeedbackAnswers } from '../types/feedback';
 import { nextQueueSlot, buildReferenceNo } from './queueService';
 import { findReferredOfficeById } from './lookupService';
 import { sendConsultationSummary } from './emailService';
@@ -366,6 +367,8 @@ export async function getDashboardCharts(userId: number, role: string): Promise<
 
 export async function listAllCompleted(filters: HistoryFilters): Promise<CompletedTransaction[]> {
   const searchLike = filters.search?.trim() ? `%${filters.search.trim()}%` : null;
+  const dateFrom = filters.date_from ?? null;
+  const dateTo = filters.date_to ?? null;
 
   const rows = await sql`
     SELECT
@@ -375,7 +378,8 @@ export async function listAllCompleted(filters: HistoryFilters): Promise<Complet
       cm2.city_municipality AS company_city,
       MAX(ro.office_name) AS referred_office_name,
       STRING_AGG(ic.category_name, ', ' ORDER BY ic.category_name) AS issue_categories,
-      MAX(u.first_name || ' ' || u.last_name) AS lawyer_name
+      MAX(u.first_name || ' ' || u.last_name) AS lawyer_name,
+      (SELECT to_jsonb(cf) FROM client_feedback cf WHERE cf.client_id = c.client_id) AS feedback
     FROM clients c
     LEFT JOIN cities_municipalities cm ON cm.id = c.city_id
     LEFT JOIN cities_municipalities cm2 ON cm2.id = c.company_city_id
@@ -391,6 +395,8 @@ export async function listAllCompleted(filters: HistoryFilters): Promise<Complet
         OR (c.first_name || ' ' || c.last_name) ILIKE ${searchLike}::text
         OR c.employer ILIKE ${searchLike}::text
       )
+      AND (${dateFrom}::date IS NULL OR c.updated_at >= ${dateFrom}::date)
+      AND (${dateTo}::date IS NULL OR c.updated_at < (${dateTo}::date + INTERVAL '1 day'))
     GROUP BY c.client_id, cm.city_municipality, cm.province, cm2.city_municipality
     ORDER BY c.updated_at DESC
   `;
@@ -416,6 +422,55 @@ export async function listCancelledByLawyer(
     ORDER BY updated_at DESC
   `;
   return rows as Client[];
+}
+
+export async function listAllCancelled(filters: HistoryFilters): Promise<(Client & { cancelled_by_name: string | null })[]> {
+  const searchLike = filters.search?.trim() ? `%${filters.search.trim()}%` : null;
+  const dateFrom = filters.date_from ?? null;
+  const dateTo = filters.date_to ?? null;
+
+  const rows = await sql`
+    SELECT
+      c.*,
+      COALESCE(
+        (ur.first_name || ' ' || ur.last_name),
+        (ul.first_name || ' ' || ul.last_name)
+      ) AS cancelled_by_name
+    FROM clients c
+    LEFT JOIN users ur ON ur.user_id = c.removed_by
+    LEFT JOIN users ul ON ul.user_id = c.assigned_lawyer_id
+    WHERE c.status = 'cancelled'
+      AND (
+        ${searchLike}::text IS NULL
+        OR c.first_name ILIKE ${searchLike}::text
+        OR c.last_name ILIKE ${searchLike}::text
+        OR (c.first_name || ' ' || c.last_name) ILIKE ${searchLike}::text
+        OR c.employer ILIKE ${searchLike}::text
+      )
+      AND (${dateFrom}::date IS NULL OR c.updated_at >= ${dateFrom}::date)
+      AND (${dateTo}::date IS NULL OR c.updated_at < (${dateTo}::date + INTERVAL '1 day'))
+    ORDER BY c.created_at DESC
+  `;
+  return rows as (Client & { cancelled_by_name: string | null })[];
+}
+
+export async function restoreToQueue(
+  clientId: number
+): Promise<{ client: Client } | { error: 'not_found' | 'not_cancelled' }> {
+  const rows = await sql`
+    UPDATE clients
+    SET status = 'waiting',
+        cancellation_reason = NULL,
+        removed_by = NULL,
+        assigned_lawyer_id = NULL,
+        updated_at = NOW()
+    WHERE client_id = ${clientId} AND status = 'cancelled'
+    RETURNING *
+  `;
+  if (rows.length > 0) return { client: rows[0] as Client };
+  const found = await sql`SELECT client_id FROM clients WHERE client_id = ${clientId}`;
+  if (found.length === 0) return { error: 'not_found' };
+  return { error: 'not_cancelled' };
 }
 
 export async function cancelTransaction(
@@ -445,26 +500,64 @@ export async function findByReferenceNo(referenceNo: string): Promise<Client | n
 
 export type FeedbackFailureReason = 'not_found' | 'not_completed' | 'already_submitted';
 
-export async function submitFeedback(
-  referenceNo: string,
-  rating: number,
-  comments: string | null
-): Promise<{ client: Client } | { error: FeedbackFailureReason }> {
-  // Single atomic statement mirrors the assign/claim pattern: only writes if the
-  // transaction is completed and feedback hasn't already been recorded.
+export async function hasFeedback(clientId: number): Promise<boolean> {
+  const rows = await sql`SELECT 1 FROM client_feedback WHERE client_id = ${clientId}`;
+  return rows.length > 0;
+}
+
+// Single atomic insert mirrors the assign/claim pattern: it only writes if the
+// transaction is completed, and ON CONFLICT guards against a duplicate response.
+async function insertFeedback(
+  clientId: number,
+  answers: FeedbackAnswers,
+  comments: string | null,
+  via: 'online' | 'manual',
+  encodedBy: number | null
+): Promise<ClientFeedback | null> {
   const rows = await sql`
-    UPDATE clients
-    SET feedback_rating = ${rating}, feedback_comments = ${comments}
-    WHERE reference_no = ${referenceNo}
-      AND status = 'completed'
-      AND feedback_rating IS NULL
+    INSERT INTO client_feedback
+      (client_id, sqd1, sqd2, sqd3, sqd4, sqd5, sqd6, sqd7, sqd8, sqd9, sqd10, comments, submitted_via, encoded_by)
+    SELECT ${clientId},
+           ${answers.sqd1}, ${answers.sqd2}, ${answers.sqd3}, ${answers.sqd4}, ${answers.sqd5},
+           ${answers.sqd6}, ${answers.sqd7}, ${answers.sqd8}, ${answers.sqd9}, ${answers.sqd10},
+           ${comments}, ${via}, ${encodedBy}
+    WHERE EXISTS (SELECT 1 FROM clients WHERE client_id = ${clientId} AND status = 'completed')
+    ON CONFLICT (client_id) DO NOTHING
     RETURNING *
   `;
-  if (rows.length > 0) return { client: rows[0] as Client };
+  return (rows[0] as ClientFeedback) ?? null;
+}
 
-  const current = await findByReferenceNo(referenceNo);
-  if (!current) return { error: 'not_found' };
-  if (current.status !== 'completed') return { error: 'not_completed' };
+// Client-facing, keyed by reference number (public, no auth).
+export async function submitFeedbackByReferenceNo(
+  referenceNo: string,
+  answers: FeedbackAnswers,
+  comments: string | null
+): Promise<{ feedback: ClientFeedback } | { error: FeedbackFailureReason }> {
+  const client = await findByReferenceNo(referenceNo);
+  if (!client) return { error: 'not_found' };
+
+  const feedback = await insertFeedback(client.client_id, answers, comments, 'online', null);
+  if (feedback) return { feedback };
+
+  if (client.status !== 'completed') return { error: 'not_completed' };
+  return { error: 'already_submitted' };
+}
+
+// Staff-facing, keyed by client id — used to manually encode paper responses.
+export async function submitFeedbackByClientId(
+  clientId: number,
+  answers: FeedbackAnswers,
+  comments: string | null,
+  encodedBy: number
+): Promise<{ feedback: ClientFeedback } | { error: FeedbackFailureReason }> {
+  const rows = await sql`SELECT status FROM clients WHERE client_id = ${clientId}`;
+  if (rows.length === 0) return { error: 'not_found' };
+
+  const feedback = await insertFeedback(clientId, answers, comments, 'manual', encodedBy);
+  if (feedback) return { feedback };
+
+  if ((rows[0] as { status: string }).status !== 'completed') return { error: 'not_completed' };
   return { error: 'already_submitted' };
 }
 
@@ -483,7 +576,8 @@ export async function listCompletedByLawyer(
       cm.province AS province,
       cm2.city_municipality AS company_city,
       MAX(ro.office_name) AS referred_office_name,
-      STRING_AGG(ic.category_name, ', ' ORDER BY ic.category_name) AS issue_categories
+      STRING_AGG(ic.category_name, ', ' ORDER BY ic.category_name) AS issue_categories,
+      (SELECT to_jsonb(cf) FROM client_feedback cf WHERE cf.client_id = c.client_id) AS feedback
     FROM clients c
     LEFT JOIN cities_municipalities cm ON cm.id = c.city_id
     LEFT JOIN cities_municipalities cm2 ON cm2.id = c.company_city_id

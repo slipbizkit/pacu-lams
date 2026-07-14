@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
 import { userService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import type { User, UserRole, UserSex } from '../types/user';
 
 const ROLE_LABELS: Record<UserRole, string> = { admin: 'Admin', lawyer: 'Lawyer', personnel: 'Personnel', support_staff: 'Support Staff' };
@@ -16,6 +17,7 @@ interface ActionsDropdownProps {
   onToggle: () => void;
   onClose: () => void;
   user: User;
+  isSelf: boolean;
   onResetPassword: () => void;
   onResetTotp: () => void;
   onToggleActive: () => void;
@@ -23,7 +25,8 @@ interface ActionsDropdownProps {
 
 const MENU_WIDTH = 200;
 
-function ActionsDropdown({ isOpen, onToggle, onClose, user, onResetPassword, onResetTotp, onToggleActive }: ActionsDropdownProps) {
+function ActionsDropdown({ isOpen, onToggle, onClose, user, isSelf, onResetPassword, onResetTotp, onToggleActive }: ActionsDropdownProps) {
+  if (isSelf) return <span className="text-muted" style={{ fontSize: '0.8rem' }}>—</span>;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -118,6 +121,7 @@ function ActionsDropdown({ isOpen, onToggle, onClose, user, onResetPassword, onR
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminUsersPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -373,6 +377,7 @@ export default function AdminUsersPage() {
                         onToggle={() => setOpenDropdownId((prev) => (prev === u.user_id ? null : u.user_id))}
                         onClose={() => setOpenDropdownId(null)}
                         user={u}
+                        isSelf={u.user_id === currentUser?.user_id}
                         onResetPassword={() => handleResetPassword(u)}
                         onResetTotp={() => handleResetTotp(u)}
                         onToggleActive={() => handleToggleActive(u)}

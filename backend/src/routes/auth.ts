@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
-import { loginLimiter } from '../middleware/rateLimit';
+import { loginLimiter, accountSetupLimiter } from '../middleware/rateLimit';
 import * as AuthController from '../controllers/authController';
 
 const router = Router();
@@ -10,11 +10,11 @@ router.post('/login', loginLimiter, asyncHandler(AuthController.login));
 router.post('/verify-totp', loginLimiter, asyncHandler(AuthController.verifyTotp));
 
 // Forced first-login password change (pre-auth, gated by tempToken from /login)
-router.post('/change-password-forced', loginLimiter, asyncHandler(AuthController.changePasswordForced));
+router.post('/change-password-forced', accountSetupLimiter, asyncHandler(AuthController.changePasswordForced));
 
 // Forced first-login 2FA setup (pre-auth, gated by tempToken from /login)
-router.post('/totp/setup-init', loginLimiter, asyncHandler(AuthController.setupInitPending));
-router.post('/totp/setup-confirm', loginLimiter, asyncHandler(AuthController.setupConfirmPending));
+router.post('/totp/setup-init', accountSetupLimiter, asyncHandler(AuthController.setupInitPending));
+router.post('/totp/setup-confirm', accountSetupLimiter, asyncHandler(AuthController.setupConfirmPending));
 
 router.get('/me', requireAuth, asyncHandler(AuthController.me));
 router.post('/refresh', requireAuth, asyncHandler(AuthController.refresh));
