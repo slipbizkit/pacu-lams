@@ -86,6 +86,7 @@ export default function IntakePage() {
   const [shake, setShake] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<IntakeResult | null>(null);
+  const [countdown, setCountdown] = useState(0);
   const [cities, setCities] = useState<CityMunicipality[]>([]);
 
   useEffect(() => {
@@ -99,6 +100,18 @@ export default function IntakePage() {
         });
       });
   }, []);
+
+  useEffect(() => {
+    if (!result) return;
+    setCountdown(10);
+    const id = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) { clearInterval(id); return 0; }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [result]);
 
   function update<K extends keyof IntakeBody>(key: K, value: IntakeBody[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -179,7 +192,16 @@ export default function IntakePage() {
     }
   }
 
-  function startNewEntry() {
+  async function startNewEntry() {
+    const { isConfirmed } = await Swal.fire({
+      icon: 'question',
+      title: 'Ready for the next client?',
+      html: 'Please make sure the client has taken note of their <strong>queue number</strong> and <strong>reference number</strong> before proceeding.',
+      confirmButtonText: 'Yes, start new entry',
+      cancelButtonText: 'Go back',
+      showCancelButton: true,
+    });
+    if (!isConfirmed) return;
     setConsentGiven(false);
     setAnonymousChosen(false);
     setForm(EMPTY_FORM);
@@ -240,9 +262,9 @@ export default function IntakePage() {
                 <p className="mb-4">
                   Reference number: <code className="pacu-mono">{result.reference_no}</code>
                 </p>
-                <button className="btn btn-primary" onClick={startNewEntry}>
+                <button className="btn btn-primary" onClick={startNewEntry} disabled={countdown > 0}>
                   <i className="bi bi-plus-lg me-2" />
-                  Start a New Entry
+                  {countdown > 0 ? `Start a New Entry (${countdown})` : 'Start a New Entry'}
                 </button>
               </div>
             </div>
@@ -453,7 +475,21 @@ function PrivacyNoticeModal({ onAgree }: { onAgree: () => void }) {
 // Anonymous Inquiry Modal
 // ---------------------------------------------------------------------------
 
+const ANON_READ_SECONDS = 5;
+
 function AnonModal({ onChoose }: { onChoose: (isAnonymous: boolean) => void }) {
+  // Short, non-scrollable content, so there is no scroll position to gate on the
+  // way the privacy notice does — hold the choice for a few seconds instead so it
+  // can't be dismissed reflexively.
+  const [secondsLeft, setSecondsLeft] = useState(ANON_READ_SECONDS);
+  const locked = secondsLeft > 0;
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return;
+    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [secondsLeft]);
+
   useEffect(() => {
     function block(e: KeyboardEvent) {
       if (e.key === 'Escape') e.preventDefault();
@@ -502,14 +538,32 @@ function AnonModal({ onChoose }: { onChoose: (isAnonymous: boolean) => void }) {
           </div>
 
           <div className="pacu-privacy-footer pacu-anon-footer">
-            <button type="button" className="btn pacu-anon-btn-no" onClick={() => onChoose(true)}>
-              <i className="bi bi-incognito me-2" />
-              Yes, stay anonymous
-            </button>
-            <button type="button" className="btn pacu-privacy-agree pacu-anon-btn-yes" onClick={() => onChoose(false)}>
-              <i className="bi bi-person-check me-2" />
-              No, don't stay anonymous
-            </button>
+            {locked && (
+              <p className="pacu-privacy-scroll-hint" role="status" aria-live="polite">
+                <i className="bi bi-hourglass-split me-1" />
+                Please take a moment to read &mdash; {secondsLeft}s
+              </p>
+            )}
+            <div className="pacu-anon-actions">
+              <button
+                type="button"
+                className="btn pacu-anon-btn-no"
+                onClick={() => onChoose(true)}
+                disabled={locked}
+              >
+                <i className="bi bi-incognito me-2" />
+                Yes, stay anonymous
+              </button>
+              <button
+                type="button"
+                className="btn pacu-privacy-agree pacu-anon-btn-yes"
+                onClick={() => onChoose(false)}
+                disabled={locked}
+              >
+                <i className="bi bi-person-check me-2" />
+                No, don't stay anonymous
+              </button>
+            </div>
           </div>
 
         </div>
@@ -583,7 +637,7 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
       <p className="pacu-eyebrow mb-3">Name of Client / Pangalan ng Kliyente</p>
       <div className="row g-3 mb-2">
         <div className="col-sm-6 col-lg-4">
-          <label className="form-label">First name{req && ' *'}</label>
+          <label className="form-label">First name{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.first_name ? ' is-error' : ''}`}>
             <input
               className="form-control"
@@ -601,7 +655,7 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
           <input className="form-control" value={form.middle_name} onChange={(e) => update('middle_name', e.target.value)} />
         </div>
         <div className="col-sm-6 col-lg-4">
-          <label className="form-label">Last name{req && ' *'}</label>
+          <label className="form-label">Last name{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.last_name ? ' is-error' : ''}`}>
             <input className="form-control" value={form.last_name} onChange={(e) => update('last_name', e.target.value)} />
             {errors.last_name && (
@@ -617,7 +671,7 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
           <input className="form-control" placeholder="Jr., Sr., III" value={form.suffix} onChange={(e) => update('suffix', e.target.value)} />
         </div>
         <div className="col-sm-6 col-lg-3">
-          <label className="form-label">Sex{req && ' *'}</label>
+          <label className="form-label">Sex{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.sex ? ' is-error' : ''}`}>
             <select className="form-select" value={form.sex ?? ''} onChange={(e) => update('sex', (e.target.value || undefined) as ClientSex | undefined)}>
               <option value="">Select</option>
@@ -630,7 +684,7 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
           </div>
         </div>
         <div className="col-sm-6 col-lg-3">
-          <label className="form-label">Contact number{req && ' *'}</label>
+          <label className="form-label">Contact number{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.contact_no ? ' is-error' : ''}`}>
             <input
               className="form-control"
@@ -658,7 +712,7 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
 
       <p className="pacu-eyebrow mb-3">Address / Tirahan</p>
       <div className="mb-2">
-        <label className="form-label">City/Municipality{req && ' *'}</label>
+        <label className="form-label">City/Municipality{req && <span style={{ color: 'red' }}> *</span>}</label>
         <div className={`pacu-wizard-field${errors.city_id ? ' is-error' : ''}`}>
           <SearchableSelect
             options={toCityOptions(cities)}
@@ -687,7 +741,7 @@ function EmploymentStatusStep({ form, update, errors }: StepProps) {
       <p className="pacu-eyebrow mb-3">Employment</p>
       <div className="row g-3 mb-4">
         <div className="col-sm-6">
-          <label className="form-label">Work Position / Posisyon sa Trabaho{req && ' *'}</label>
+          <label className="form-label">Work Position / Posisyon sa Trabaho{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.occupation ? ' is-error' : ''}`}>
             <input className="form-control" value={form.occupation} onChange={(e) => update('occupation', e.target.value)} />
             {errors.occupation && (
@@ -696,12 +750,13 @@ function EmploymentStatusStep({ form, update, errors }: StepProps) {
           </div>
         </div>
         <div className="col-sm-6">
-          <label className="form-label">Date of Employment / Kailan Nakapasok sa Trabaho{req && ' *'}</label>
+          <label className="form-label">Date of Employment / Kailan Nakapasok sa Trabaho{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.date_of_employment ? ' is-error' : ''}`}>
             <input
               type="date"
               className="form-control"
               value={form.date_of_employment}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => update('date_of_employment', e.target.value)}
             />
             {errors.date_of_employment && (
@@ -712,7 +767,7 @@ function EmploymentStatusStep({ form, update, errors }: StepProps) {
       </div>
 
       <div className="mb-4">
-        <label className="form-label d-block">Union Membership / Miyembro ng Unyon ng Manggagawa{req && ' *'}</label>
+        <label className="form-label d-block">Union Membership / Miyembro ng Unyon ng Manggagawa{req && <span style={{ color: 'red' }}> *</span>}</label>
         <div className="d-flex gap-4">
           <div className="form-check">
             <input
@@ -775,7 +830,7 @@ function CompanyDetailsStep({ form, update, errors, cities }: StepProps & { citi
       <p className="pacu-eyebrow mb-3">Company Details</p>
       <div className="row g-3 mb-4">
         <div className="col-lg-6">
-          <label className="form-label">Name of Company / Pangalan ng Kumpanya *</label>
+          <label className="form-label">Name of Company / Pangalan ng Kumpanya <span style={{ color: 'red' }}>*</span></label>
           <div className={`pacu-wizard-field${errors.employer ? ' is-error' : ''}`}>
             <input className="form-control" value={form.employer} onChange={(e) => update('employer', e.target.value)} />
             {errors.employer && (
@@ -785,7 +840,7 @@ function CompanyDetailsStep({ form, update, errors, cities }: StepProps & { citi
         </div>
 
         <div className="col-lg-6">
-          <label className="form-label">Address of Company (City/Municipality) *</label>
+          <label className="form-label">Address of Company (City/Municipality) <span style={{ color: 'red' }}>*</span></label>
           <div className={`pacu-wizard-field${errors.company_city_id ? ' is-error' : ''}`}>
             <SearchableSelect
               options={toCityOptions(cities)}
