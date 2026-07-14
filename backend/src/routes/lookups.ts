@@ -13,6 +13,25 @@ router.get('/referred-offices', requireAuth, asyncHandler(LookupController.listR
 
 // Admin management — includes inactive rows, mutations
 router.get(
+  '/issue-category-groups',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(LookupController.listIssueCategoryGroups)
+);
+router.post(
+  '/issue-category-groups',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(LookupController.createIssueCategoryGroup)
+);
+router.patch(
+  '/issue-category-groups/:id',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(LookupController.updateIssueCategoryGroup)
+);
+
+router.get(
   '/issue-categories/all',
   requireAuth,
   requireRole('admin'),

@@ -6,6 +6,7 @@ import type {
   CompletedTransaction,
   ConsultationBody,
   CreateIssueCategoryBody,
+  CreateIssueCategoryGroupBody,
   CreateReferredOfficeBody,
   Dashboard,
   DashboardCharts,
@@ -14,6 +15,7 @@ import type {
   IntakeBody,
   IntakeResult,
   IssueCategory,
+  IssueCategoryGroup,
   IssueTag,
   LawyerOption,
   ReferredOffice,
@@ -21,10 +23,28 @@ import type {
   SubmitFeedbackBody,
   SupportStaffDashboard,
   UpdateIssueCategoryBody,
+  UpdateIssueCategoryGroupBody,
   UpdateReferredOfficeBody,
 } from '../types/client';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
+
+/**
+ * Carries the HTTP status alongside the message, so callers can tell *why* a request
+ * failed. Without this, a 429 rate-limit is indistinguishable from a 401 bad
+ * credential — and the login form, which must show a deliberately vague message for
+ * 401, would show that same "invalid password" text to a user who is merely
+ * rate-limited, prompting them to retry and deepen the lockout.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('token');
@@ -47,7 +67,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(err.message || 'Request failed');
+    throw new ApiError(err.message || 'Request failed', res.status);
   }
 
   return res.json() as Promise<T>;
@@ -204,6 +224,11 @@ export const lookupService = {
     apiFetch<IssueCategory>('/lookups/issue-categories', { method: 'POST', body: JSON.stringify(body) }),
   updateIssueCategory: (categoryId: number, body: UpdateIssueCategoryBody) =>
     apiFetch<IssueCategory>(`/lookups/issue-categories/${categoryId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  issueCategoryGroups: () => apiFetch<IssueCategoryGroup[]>('/lookups/issue-category-groups'),
+  createIssueCategoryGroup: (body: CreateIssueCategoryGroupBody) =>
+    apiFetch<IssueCategoryGroup>('/lookups/issue-category-groups', { method: 'POST', body: JSON.stringify(body) }),
+  updateIssueCategoryGroup: (groupId: number, body: UpdateIssueCategoryGroupBody) =>
+    apiFetch<IssueCategoryGroup>(`/lookups/issue-category-groups/${groupId}`, { method: 'PATCH', body: JSON.stringify(body) }),
   allReferredOffices: () => apiFetch<ReferredOffice[]>('/lookups/referred-offices/all'),
   createReferredOffice: (body: CreateReferredOfficeBody) =>
     apiFetch<ReferredOffice>('/lookups/referred-offices', { method: 'POST', body: JSON.stringify(body) }),

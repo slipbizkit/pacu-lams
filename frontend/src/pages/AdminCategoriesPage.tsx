@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 import { lookupService } from '../services/api';
-import type { IssueCategory } from '../types/client';
-
-const EMPTY_FORM = { category_group: '', category_name: '', description: '' };
+import type { IssueCategory, IssueCategoryGroup } from '../types/client';
+import { NewCategoryModal } from '../components/NewCategoryModal';
+import { NewIssueModal } from '../components/NewIssueModal';
 
 export default function AdminCategoriesPage() {
+  const [groups, setGroups] = useState<IssueCategoryGroup[]>([]);
   const [categories, setCategories] = useState<IssueCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [submitting, setSubmitting] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showIssueModal, setShowIssueModal] = useState(false);
 
   async function load() {
     setLoading(true);
     try {
-      setCategories(await lookupService.allIssueCategories());
+      const [groupRows, categoryRows] = await Promise.all([
+        lookupService.issueCategoryGroups(),
+        lookupService.allIssueCategories(),
+      ]);
+      setGroups(groupRows);
+      setCategories(categoryRows);
     } catch (err) {
       Swal.fire({ icon: 'error', title: 'Could not load issue categories', text: err instanceof Error ? err.message : 'Please try again' });
     } finally {
@@ -27,30 +32,26 @@ export default function AdminCategoriesPage() {
     load();
   }, []);
 
-  const grouped = useMemo(() => {
-    const groups = new Map<string, IssueCategory[]>();
+  // Keyed off the group list (not the issues), so a category with no issues yet
+  // still gets a card.
+  const issuesByGroup = useMemo(() => {
+    const map = new Map<number, IssueCategory[]>();
+    for (const group of groups) map.set(group.group_id, []);
     for (const cat of categories) {
-      const list = groups.get(cat.category_group) ?? [];
-      list.push(cat);
-      groups.set(cat.category_group, list);
+      const list = map.get(cat.group_id);
+      if (list) list.push(cat);
     }
-    return groups;
-  }, [categories]);
+    return map;
+  }, [groups, categories]);
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const created = await lookupService.createIssueCategory(form);
-      setCategories((prev) => [...prev, created]);
-      setForm(EMPTY_FORM);
-      setShowForm(false);
-      Swal.fire({ icon: 'success', title: 'Category added', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Could not add category', text: err instanceof Error ? err.message : 'Please try again' });
-    } finally {
-      setSubmitting(false);
-    }
+  function handleCategoryCreated(created: IssueCategoryGroup) {
+    setGroups((prev) => [...prev, created].sort((a, b) => a.group_name.localeCompare(b.group_name)));
+    setShowCategoryModal(false);
+  }
+
+  function handleIssueCreated(created: IssueCategory) {
+    setCategories((prev) => [...prev, created]);
+    setShowIssueModal(false);
   }
 
   async function handleToggleActive(cat: IssueCategory) {
@@ -68,7 +69,7 @@ export default function AdminCategoriesPage() {
       const updated = await lookupService.updateIssueCategory(cat.category_id, { is_active: !cat.is_active });
       setCategories((prev) => prev.map((c) => (c.category_id === updated.category_id ? updated : c)));
     } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Could not update category', text: err instanceof Error ? err.message : 'Please try again' });
+      Swal.fire({ icon: 'error', title: 'Could not update issue', text: err instanceof Error ? err.message : 'Please try again' });
     }
   }
 
@@ -76,40 +77,39 @@ export default function AdminCategoriesPage() {
     <div>
       <div className="d-flex align-items-center justify-content-between mb-1">
         <h1 className="pacu-display mb-0">Issue Categories</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
-          <i className="bi bi-plus-lg me-2" />
-          New Category
-        </button>
+        <div className="d-flex gap-2">
+          <button className="btn btn-outline-primary" onClick={() => setShowCategoryModal(true)}>
+            <i className="bi bi-folder-plus me-2" />
+            New Category
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowIssueModal(true)}
+            disabled={groups.length === 0}
+            title={groups.length === 0 ? 'Add a category first' : undefined}
+          >
+            <i className="bi bi-plus-lg me-2" />
+            New Issue
+          </button>
+        </div>
       </div>
       <p className="text-muted mb-4" style={{ fontSize: '0.9rem' }}>
         Categories lawyers tag on a transaction, grouped for display in the consultation modal.
       </p>
 
-      {showForm && (
-        <div className="card mb-4">
-          <div className="card-body p-4">
-            <form onSubmit={handleCreate}>
-              <div className="row g-3 mb-3">
-                <div className="col-md-4">
-                  <label className="form-label">Group *</label>
-                  <input className="form-control" placeholder="e.g. Wages" value={form.category_group} onChange={(e) => setForm({ ...form, category_group: e.target.value })} required />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label">Name *</label>
-                  <input className="form-control" placeholder="e.g. Delay" value={form.category_name} onChange={(e) => setForm({ ...form, category_name: e.target.value })} required />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label">Description</label>
-                  <input className="form-control" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-                </div>
-              </div>
-              <button className="btn btn-primary" type="submit" disabled={submitting}>
-                {submitting ? <span className="spinner-border spinner-border-sm me-2" /> : null}
-                Add Category
-              </button>
-            </form>
-          </div>
-        </div>
+      {showCategoryModal && (
+        <NewCategoryModal
+          onClose={() => setShowCategoryModal(false)}
+          onCreated={handleCategoryCreated}
+        />
+      )}
+
+      {showIssueModal && (
+        <NewIssueModal
+          groups={groups}
+          onClose={() => setShowIssueModal(false)}
+          onCreated={handleIssueCreated}
+        />
       )}
 
       {loading ? (
@@ -118,26 +118,35 @@ export default function AdminCategoriesPage() {
         </div>
       ) : (
         <div className="row g-3">
-          {[...grouped.entries()].map(([group, cats]) => (
-            <div key={group} className="col-md-6">
-              <div className="card h-100">
-                <div className="card-body p-4">
-                  <p className="pacu-eyebrow mb-3">{group}</p>
-                  {cats.map((cat) => (
-                    <div key={cat.category_id} className="d-flex align-items-center justify-content-between py-2" style={{ borderBottom: '1px solid var(--pacu-border)' }}>
-                      <span style={{ opacity: cat.is_active ? 1 : 0.5, fontSize: '0.9rem' }}>{cat.category_name}</span>
-                      <button
-                        className={`btn btn-sm ${cat.is_active ? 'btn-outline-danger' : 'btn-outline-secondary'}`}
-                        onClick={() => handleToggleActive(cat)}
-                      >
-                        {cat.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                    </div>
-                  ))}
+          {groups.map((group) => {
+            const issues = issuesByGroup.get(group.group_id) ?? [];
+            return (
+              <div key={group.group_id} className="col-md-6">
+                <div className="card h-100">
+                  <div className="card-body p-4">
+                    <p className="pacu-eyebrow mb-3">{group.group_name}</p>
+                    {issues.length === 0 ? (
+                      <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>
+                        No issues yet. Use “New Issue” to add one.
+                      </p>
+                    ) : (
+                      issues.map((cat) => (
+                        <div key={cat.category_id} className="d-flex align-items-center justify-content-between py-2" style={{ borderBottom: '1px solid var(--pacu-border)' }}>
+                          <span style={{ opacity: cat.is_active ? 1 : 0.5, fontSize: '0.9rem' }}>{cat.category_name}</span>
+                          <button
+                            className={`btn btn-sm ${cat.is_active ? 'btn-outline-danger' : 'btn-outline-secondary'}`}
+                            onClick={() => handleToggleActive(cat)}
+                          >
+                            {cat.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
