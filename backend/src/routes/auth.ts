@@ -1,13 +1,16 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
-import { loginLimiter, accountSetupLimiter } from '../middleware/rateLimit';
+import { loginLimiter, totpLimiter, authIpLimiter, accountSetupLimiter } from '../middleware/rateLimit';
 import * as AuthController from '../controllers/authController';
 
 const router = Router();
 
-router.post('/login', loginLimiter, asyncHandler(AuthController.login));
-router.post('/verify-totp', loginLimiter, asyncHandler(AuthController.verifyTotp));
+// Two nets on each credential route: a strict per-account limit (so guessing one
+// account can't lock out the rest of the office), behind a looser per-IP limit (so
+// spraying one guess across many accounts from one host still trips something).
+router.post('/login', authIpLimiter, loginLimiter, asyncHandler(AuthController.login));
+router.post('/verify-totp', authIpLimiter, totpLimiter, asyncHandler(AuthController.verifyTotp));
 
 // Forced first-login password change (pre-auth, gated by tempToken from /login)
 router.post('/change-password-forced', accountSetupLimiter, asyncHandler(AuthController.changePasswordForced));

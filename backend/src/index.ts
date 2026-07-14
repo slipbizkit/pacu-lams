@@ -10,6 +10,13 @@ import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 
+// Vercel terminates TLS and proxies to this app, so the socket peer is Vercel's
+// edge — not the client. Without this, `req.ip` is the proxy's address for every
+// request, which would collapse all rate-limit keys into a single shared bucket and
+// let one user's failed logins lock out everyone. Trust exactly one hop: trusting
+// more would let a client forge X-Forwarded-For and evade the limiter entirely.
+app.set('trust proxy', 1);
+
 // In production, lock CORS to the configured frontend origin. In development,
 // allow any localhost origin so multiple dev frontends (different Vite ports,
 // e.g. several concurrent sessions) can reach the API without reconfiguring.

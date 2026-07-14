@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
-import { authService } from '../services/api';
+import { ApiError, authService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { OtpInput } from '../components/OtpInput';
@@ -19,14 +19,30 @@ const PASSWORD_RULES = [
   { label: 'Contains symbol', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
 ];
 
-const FEATURES = [
-  { icon: 'bi-people', label: 'Queue & assistance form' },
-  { icon: 'bi-chat-square-text', label: 'Consultation records' },
-  { icon: 'bi-signpost-2', label: 'Referrals & reports' },
-];
+// Password resets and 2FA resets are admin-performed by design — there is no
+// self-service path — so the login screen has to say where to go instead.
+const ADMIN_HELP = 'Contact your PACU administrator to have your password or authenticator reset.';
 
 const GENERIC_CREDENTIALS_ERROR = 'Invalid email or password.';
 const GENERIC_TOTP_ERROR = 'Invalid verification code.';
+
+// A 429 is the rate limiter, not a bad credential. It has to be told apart from a
+// 401: the vague "invalid email or password" message is deliberate for a genuine
+// auth failure (it must not reveal whether an account exists), but showing it to a
+// locked-out user is a lie that invites them to keep retrying and extend the
+// lockout. The limiter's own message says how to recover, so surface it verbatim.
+function isRateLimited(err: unknown): err is ApiError {
+  return err instanceof ApiError && err.status === 429;
+}
+
+function CapsLockWarning() {
+  return (
+    <p className="pacu-auth-caps" role="status">
+      <i className="bi bi-capslock" />
+      Caps Lock is on.
+    </p>
+  );
+}
 
 export default function LoginPage() {
   const [step, setStep] = useState<Step>('credentials');
@@ -51,8 +67,16 @@ export default function LoginPage() {
   const [totpError, setTotpError] = useState('');
   const [shake, setShake] = useState(false);
   const [otpFocusSignal, setOtpFocusSignal] = useState(0);
+  const [capsLock, setCapsLock] = useState(false);
 
   const passwordRef = useRef<HTMLInputElement>(null);
+
+  // Caps Lock state is only readable from a keyboard/mouse event, never queryable
+  // directly — so track it from events on the password fields themselves. Cleared
+  // on blur so a stale warning can't linger on a field the user has left.
+  function trackCapsLock(e: React.KeyboardEvent | React.MouseEvent) {
+    setCapsLock(e.getModifierState('CapsLock'));
+  }
 
   const auth = useAuth();
   const navigate = useNavigate();
@@ -92,12 +116,18 @@ export default function LoginPage() {
     try {
       const data = await authService.login(email, password);
       await routeAfterAuthStep(data);
-    } catch {
-      // Generic message regardless of backend detail — never reveal whether the username exists.
-      setCredentialsError(GENERIC_CREDENTIALS_ERROR);
-      setPassword('');
+    } catch (err) {
+      if (isRateLimited(err)) {
+        // Keep what they typed: the password wasn't necessarily wrong, and clearing
+        // it would make the retry after the cooldown needlessly punishing.
+        setCredentialsError(err.message);
+      } else {
+        // Generic message regardless of backend detail — never reveal whether the username exists.
+        setCredentialsError(GENERIC_CREDENTIALS_ERROR);
+        setPassword('');
+        requestAnimationFrame(() => passwordRef.current?.focus());
+      }
       fireShake();
-      requestAnimationFrame(() => passwordRef.current?.focus());
     } finally {
       setLoading(false);
     }
@@ -167,10 +197,14 @@ export default function LoginPage() {
       if (data.token) {
         await finishLogin(data.token);
       }
-    } catch {
-      setTotpError(GENERIC_TOTP_ERROR);
-      setCode('');
-      setOtpFocusSignal((n) => n + 1);
+    } catch (err) {
+      if (isRateLimited(err)) {
+        setTotpError(err.message);
+      } else {
+        setTotpError(GENERIC_TOTP_ERROR);
+        setCode('');
+        setOtpFocusSignal((n) => n + 1);
+      }
       fireShake();
       setLoading(false);
     }
@@ -231,30 +265,37 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <p className="pacu-eyebrow mb-3" style={{ color: '#c4b5fd' }}>
-            DOLE &middot; Public Assistance and Complaints Unit
+          <p className="pacu-eyebrow pacu-auth-hero-eyebrow mb-3">
+            Department of Labor and Employment
           </p>
-          <h1 className="pacu-display mb-3" style={{ fontSize: '2.25rem', color: '#f5f3ff' }}>
-            Every case, properly recorded.
+          <h1 className="pacu-display pacu-auth-hero-title mb-3" style={{ fontSize: '2.25rem' }}>
+            Public Assistance and Complaints Unit
           </h1>
-          <p style={{ color: '#ddd6fe', fontSize: '0.95rem' }}>
-            Sign in to manage assistance form submissions, consultations, and referrals for walk-in clients.
+          <p className="pacu-auth-hero-lead mb-0">
+            Internal case management for legal assistance provided to walk-in clients.
           </p>
         </div>
 
-        <ul className="list-unstyled d-flex flex-column gap-3 mb-0">
-          {FEATURES.map((f) => (
-            <li key={f.label} className="d-flex align-items-center gap-3">
-              <span
-                className="d-inline-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(196, 181, 253, 0.18)', color: '#ddd6fe' }}
-              >
-                <i className={`bi ${f.icon}`} />
-              </span>
-              <span style={{ fontSize: '0.9rem', color: '#ede9fe' }}>{f.label}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="d-flex flex-column gap-3">
+          <div className="pacu-auth-hero-panel">
+            <p className="pacu-auth-hero-panel-title">
+              <i className="bi bi-question-circle" />
+              Trouble signing in?
+            </p>
+            <p className="pacu-auth-hero-panel-body">{ADMIN_HELP}</p>
+          </div>
+
+          <div className="pacu-auth-hero-panel">
+            <p className="pacu-auth-hero-panel-title">
+              <i className="bi bi-shield-lock" />
+              Authorized access only
+            </p>
+            <p className="pacu-auth-hero-panel-body">
+              This system holds confidential client information. Access is limited to authorized
+              DOLE personnel, and activity is recorded.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Form panel */}
@@ -333,12 +374,17 @@ export default function LoginPage() {
                         className="form-control"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        onKeyDown={trackCapsLock}
+                        onKeyUp={trackCapsLock}
+                        onClick={trackCapsLock}
+                        onBlur={() => setCapsLock(false)}
                         required
                         autoComplete="current-password"
                         disabled={loading}
                         aria-invalid={!!credentialsError}
                         aria-describedby={credentialsError ? 'auth-credentials-error' : undefined}
                       />
+                      {capsLock && <CapsLockWarning />}
                     </div>
                     {credentialsError && (
                       <p id="auth-credentials-error" className="pacu-auth-error" role="alert">
@@ -366,12 +412,17 @@ export default function LoginPage() {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         onFocus={() => setShowPasswordChecklist(true)}
+                        onKeyDown={trackCapsLock}
+                        onKeyUp={trackCapsLock}
+                        onClick={trackCapsLock}
+                        onBlur={() => setCapsLock(false)}
                         required
                         autoFocus
                         autoComplete="new-password"
                         disabled={loading}
                         aria-invalid={passwordFieldsInvalid}
                       />
+                      {capsLock && <CapsLockWarning />}
                       {showPasswordChecklist && (
                         <ul className="list-unstyled mt-2 mb-0" style={{ fontSize: '0.8rem' }}>
                           {PASSWORD_RULES.map((rule) => {
@@ -396,12 +447,17 @@ export default function LoginPage() {
                         className="form-control"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        onKeyDown={trackCapsLock}
+                        onKeyUp={trackCapsLock}
+                        onClick={trackCapsLock}
+                        onBlur={() => setCapsLock(false)}
                         required
                         autoComplete="new-password"
                         disabled={loading}
                         aria-invalid={passwordFieldsInvalid}
                         aria-describedby={passwordChangeError ? 'auth-password-change-error' : undefined}
                       />
+                      {capsLock && <CapsLockWarning />}
                     </div>
                     {passwordChangeError && (
                       <p id="auth-password-change-error" className="pacu-auth-error" role="alert">
@@ -491,6 +547,19 @@ export default function LoginPage() {
               </>
             )}
           </div>
+
+          {!success && (
+            <div className="pacu-auth-notice">
+              <p className="mb-1">
+                <i className="bi bi-question-circle" />
+                {ADMIN_HELP}
+              </p>
+              <p className="mb-0 d-lg-none">
+                <i className="bi bi-shield-lock" />
+                Authorized DOLE personnel only. Activity is recorded.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

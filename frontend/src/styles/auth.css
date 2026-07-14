@@ -4,12 +4,35 @@
  * into other pages.
  */
 
+/* Login wears DOLE navy, not the app's violet accent: this is the screen that
+   establishes the system as an official DOLE service, and navy is the identity
+   already carried by the letterhead, the outgoing emails, and the PDF exports.
+   Redefining the accent token here re-skins every descendant (buttons, focus
+   rings, OTP boxes, spinners) without leaking into the rest of the app. */
 .pacu-auth-shell {
+  --pacu-accent: #1a3a8f;
+  --pacu-accent-rgb: 26, 58, 143;
+  --pacu-accent-hover: #12358a;
+  --pacu-accent-soft: rgba(26, 58, 143, 0.08);
+  --pacu-accent-contrast: #ffffff;
+
   min-height: 100vh;
   display: flex;
   background-color: var(--pacu-bg);
 }
 
+/* On dark surfaces the deep navy fails contrast, so lift it to a legible tint and
+   flip the text on top to dark. */
+html[data-theme='dark'] .pacu-auth-shell {
+  --pacu-accent: #7ba7f0;
+  --pacu-accent-rgb: 123, 167, 240;
+  --pacu-accent-hover: #9dbdf5;
+  --pacu-accent-soft: rgba(123, 167, 240, 0.18);
+  --pacu-accent-contrast: #0f172a;
+}
+
+/* The hero is a fixed institutional panel — deliberately NOT themed, so the DOLE
+   identity reads the same in every theme. */
 .pacu-auth-hero {
   position: relative;
   width: 440px;
@@ -19,13 +42,66 @@
   justify-content: space-between;
   padding: 3rem;
   overflow: hidden;
-  background: linear-gradient(155deg, #4c1d95 0%, #5b21b6 55%, #6d28d9 100%);
-  color: #f5f3ff;
+  background: linear-gradient(155deg, #0d1f4d 0%, #14306e 55%, #1a3a8f 100%);
+  color: #eef3fc;
 }
 
 .pacu-auth-hero > * {
   position: relative;
   z-index: 1;
+}
+
+.pacu-auth-hero-eyebrow {
+  color: #9db8e4;
+}
+
+.pacu-auth-hero-title {
+  color: #f4f7fd;
+}
+
+.pacu-auth-hero-lead {
+  color: #c2d3ed;
+  font-size: 0.95rem;
+}
+
+/* Sign-in help + authorized-use notice share a quiet inset panel. */
+.pacu-auth-hero-panel {
+  border-radius: var(--pacu-radius);
+  background-color: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem 1.1rem;
+}
+
+.pacu-auth-hero-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #dbe6f8;
+  margin-bottom: 0.35rem;
+}
+
+.pacu-auth-hero-panel-body {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: #a9c0e2;
+  margin: 0;
+}
+
+/* Shown below the card on every breakpoint — on narrow screens the hero is hidden,
+   and this is the only place the access notice and lockout help would appear. */
+.pacu-auth-notice {
+  max-width: 380px;
+  margin: 1.25rem auto 0;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--pacu-text-muted);
+}
+
+.pacu-auth-notice i {
+  margin-right: 0.3rem;
 }
 
 .pacu-auth-formside {
@@ -61,6 +137,7 @@ html[data-theme='dark'] .pacu-auth-topnav {
 .pacu-auth-card-viewport {
   flex: 1 1 auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
@@ -177,6 +254,22 @@ html[data-theme='dark'] .pacu-auth-topnav {
   font-weight: 500;
   color: var(--pacu-danger);
   margin-top: 0.6rem;
+}
+
+/* Caps Lock is a heads-up, not a failure — deliberately warm/amber rather than the
+   danger red used for real errors, so it doesn't read as "you got it wrong". */
+.pacu-auth-caps {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #b45309;
+  margin-top: 0.4rem;
+}
+
+html[data-theme='dark'] .pacu-auth-caps {
+  color: #fbbf24;
 }
 
 @media (prefers-reduced-motion: reduce) {
