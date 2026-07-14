@@ -21,7 +21,7 @@ function buildHtml(params: {
   referredReason: string | null;
 }): string {
   const { firstName, lastName, referenceNo, transactionDate, legalAdvice, referredOfficeName, referredReason } = params;
-  const fullName = `${firstName} ${lastName}`;
+  const fullName = (firstName.trim() || lastName.trim()) ? `${firstName} ${lastName}`.trim() : null;
   const dateFormatted = formatDate(transactionDate);
 
   const referralBlock = referredOfficeName ? `
@@ -86,7 +86,7 @@ function buildHtml(params: {
           <!-- Body -->
           <tr>
             <td style="padding:36px 40px 24px;">
-              <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Dear <strong style="color:#111827;">${fullName}</strong>,</p>
+              <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">${fullName ? `Dear <strong style="color:#111827;">${fullName}</strong>,` : 'Dear Client,'}</p>
               <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">
                 Thank you for visiting the PACU. Below is a summary of your legal consultation for your reference.
               </p>
