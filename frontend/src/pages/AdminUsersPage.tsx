@@ -180,12 +180,16 @@ export default function AdminUsersPage() {
       await Swal.fire({
         icon: 'success',
         title: 'Account created',
-        html: `Share these credentials with <b>${user.first_name} ${user.last_name}</b>. They'll set up 2FA on first login.<br><br>
-               Email: <code>${user.email}</code><br>Temporary password: <code>${tempPassword}</code>`,
+        html: `Sign-in details were emailed to <b>${user.email}</b>.<br><br>
+               In case they don't receive it, the temporary password is:<br><code>${tempPassword}</code>`,
         confirmButtonText: 'Got it',
       });
     } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Could not create account', text: err instanceof Error ? err.message : 'Please try again' });
+      Swal.fire({
+        icon: 'error',
+        title: 'Account not created',
+        text: err instanceof Error ? err.message : 'Please try again',
+      });
     } finally {
       setSubmitting(false);
     }
