@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import * as UserService from '../services/userService';
-import { sendPasswordReset } from '../services/emailService';
+import { sendAccountCreated, sendPasswordReset } from '../services/emailService';
 import { CreateUserBody, UpdateUserBody, UserRole, UserSex } from '../types/user';
 
 const ROLE_VALUES: UserRole[] = ['admin', 'lawyer', 'personnel'];
@@ -47,6 +47,34 @@ export async function createUser(req: AuthRequest, res: Response) {
     first_name: body.first_name.trim(),
     last_name: body.last_name.trim(),
   });
+
+  // The temporary password only exists in this email — an account whose owner never
+  // received it is unusable, so a failed send rolls the account back rather than
+  // leaving a dead row that also squats on the (unique) email address.
+  try {
+    await sendAccountCreated({
+      toEmail: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      tempPassword,
+      role: user.role,
+    });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'Unknown email error';
+    try {
+      await UserService.deleteUser(user.user_id);
+    } catch {
+      // Rollback failed too — the admin must clean up, so say so plainly.
+      return res.status(502).json({
+        message:
+          `The account could not be emailed (${reason}), and rolling it back also failed. ` +
+          `The account exists but is unusable — delete it and try again.`,
+      });
+    }
+    return res.status(502).json({
+      message: `The account was not created because the email could not be sent: ${reason}`,
+    });
+  }
 
   res.status(201).json({ user, tempPassword });
 }

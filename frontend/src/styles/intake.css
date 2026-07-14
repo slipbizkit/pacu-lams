@@ -77,30 +77,32 @@
 .pacu-dole-banner-text {
   display: flex;
   flex-direction: column;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--pacu-font-body);
   color: var(--dole-blue);
 }
 
 .pacu-dole-banner-republic {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
+  display: block;
   font-size: 0.95rem;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .pacu-dole-banner-rule {
-  flex: 1;
-  height: 2px;
+  display: block;
+  width: 100%;
+  height: 1px;
   background: var(--dole-blue);
-  min-width: 40px;
+  opacity: 0.55;
+  margin: 0.2rem 0;
 }
 
 .pacu-dole-banner-dept {
+  font-family: var(--pacu-font-display);
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.2;
   letter-spacing: 0.01em;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -164,14 +166,15 @@ html[data-theme='dark'] .pacu-intake-navbar {
 .pacu-stepper {
   display: flex;
   align-items: flex-start;
+  padding-bottom: 1.75rem;
 }
 
 .pacu-step {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 0 0 auto;
-  gap: 0.5rem;
+  flex: 0 0 38px;
 }
 
 .pacu-step-circle {
@@ -203,6 +206,10 @@ html[data-theme='dark'] .pacu-intake-navbar {
 }
 
 .pacu-step-label {
+  position: absolute;
+  top: calc(38px + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--pacu-text-muted);
@@ -222,7 +229,7 @@ html[data-theme='dark'] .pacu-intake-navbar {
 .pacu-step-connector {
   flex: 1 1 auto;
   align-self: flex-start;
-  margin-top: 18px;
+  margin: 18px 40px 0;
   height: 2px;
   background-color: var(--pacu-border);
   transition: background-color 0.35s ease;
@@ -343,7 +350,11 @@ html[data-theme='dark'] .pacu-intake-navbar {
 .pacu-privacy-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.55);
+  /* Dim is lighter than a plain scrim would need to be, because the blur is
+     doing part of the work of separating the modal from the page behind it. */
+  background-color: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   z-index: 2000;
 }
 
@@ -614,6 +625,14 @@ html[data-theme='dark'] .pacu-privacy-contact {
   flex-wrap: wrap;
 }
 
+.pacu-anon-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .pacu-anon-btn-yes {
   background: linear-gradient(120deg, #123a86 0%, #1c56c0 100%);
   color: #fff;
@@ -623,7 +642,7 @@ html[data-theme='dark'] .pacu-privacy-contact {
   box-shadow: 0 6px 16px rgba(18, 58, 134, 0.35);
 }
 
-.pacu-anon-btn-yes:hover {
+.pacu-anon-btn-yes:hover:not(:disabled) {
   background: linear-gradient(120deg, #0e2f6e 0%, #1748a4 100%);
   color: #fff;
 }
@@ -636,8 +655,13 @@ html[data-theme='dark'] .pacu-privacy-contact {
   color: var(--bs-body-color);
 }
 
-.pacu-anon-btn-no:hover {
+.pacu-anon-btn-no:hover:not(:disabled) {
   border-color: var(--pacu-accent);
   color: var(--pacu-accent);
   background: transparent;
+}
+
+.pacu-anon-btn-no:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

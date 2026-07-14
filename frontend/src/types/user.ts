@@ -58,6 +58,8 @@ export interface UpdateUserBody {
   is_active?: boolean;
 }
 
+// No `emailSent` flag: account creation now fails outright if the email cannot be
+// sent, so reaching this result means it was delivered.
 export interface CreateUserResult {
   user: User;
   tempPassword: string;

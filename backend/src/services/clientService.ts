@@ -112,11 +112,12 @@ export async function findAssignedToLawyer(clientId: number, lawyerId: number): 
 
 export async function getIssueTags(clientId: number): Promise<IssueTag[]> {
   const rows = await sql`
-    SELECT ic.category_id, ic.category_group, ic.category_name, ci.issue_description
+    SELECT ic.category_id, g.group_name AS category_group, ic.category_name, ci.issue_description
     FROM client_issues ci
     JOIN issue_categories ic ON ic.category_id = ci.category_id
+    JOIN issue_category_groups g ON g.group_id = ic.group_id
     WHERE ci.client_id = ${clientId}
-    ORDER BY ic.category_group, ic.category_name
+    ORDER BY g.group_name, ic.category_name
   `;
   return rows as IssueTag[];
 }

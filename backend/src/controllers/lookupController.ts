@@ -3,8 +3,10 @@ import { AuthRequest } from '../middleware/auth';
 import * as LookupService from '../services/lookupService';
 import {
   CreateIssueCategoryBody,
+  CreateIssueCategoryGroupBody,
   CreateReferredOfficeBody,
   UpdateIssueCategoryBody,
+  UpdateIssueCategoryGroupBody,
   UpdateReferredOfficeBody,
 } from '../types/lookup';
 
@@ -24,13 +26,59 @@ export async function listAllIssueCategories(_req: AuthRequest, res: Response) {
   res.json(categories);
 }
 
+export async function listIssueCategoryGroups(_req: AuthRequest, res: Response) {
+  const groups = await LookupService.listIssueCategoryGroups();
+  res.json(groups);
+}
+
+export async function createIssueCategoryGroup(req: AuthRequest, res: Response) {
+  const body = req.body as CreateIssueCategoryGroupBody;
+  if (!body.group_name?.trim()) {
+    return res.status(400).json({ message: 'group_name is required' });
+  }
+  const groupName = body.group_name.trim();
+
+  const existing = await LookupService.findIssueCategoryGroupByName(groupName);
+  if (existing) {
+    return res.status(409).json({ message: `Category "${existing.group_name}" already exists` });
+  }
+
+  const group = await LookupService.createIssueCategoryGroup({ group_name: groupName });
+  res.status(201).json(group);
+}
+
+export async function updateIssueCategoryGroup(req: AuthRequest, res: Response) {
+  const groupId = Number(req.params.id);
+  const body = req.body as UpdateIssueCategoryGroupBody;
+
+  if (body.group_name !== undefined) {
+    const groupName = body.group_name.trim();
+    if (!groupName) {
+      return res.status(400).json({ message: 'group_name cannot be empty' });
+    }
+    const existing = await LookupService.findIssueCategoryGroupByName(groupName);
+    if (existing && existing.group_id !== groupId) {
+      return res.status(409).json({ message: `Category "${existing.group_name}" already exists` });
+    }
+    body.group_name = groupName;
+  }
+
+  const group = await LookupService.updateIssueCategoryGroup(groupId, body);
+  if (!group) return res.status(404).json({ message: 'Category not found' });
+  res.json(group);
+}
+
 export async function createIssueCategory(req: AuthRequest, res: Response) {
   const body = req.body as CreateIssueCategoryBody;
-  if (!body.category_group?.trim() || !body.category_name?.trim()) {
-    return res.status(400).json({ message: 'category_group and category_name are required' });
+  if (!body.group_id || !body.category_name?.trim()) {
+    return res.status(400).json({ message: 'group_id and category_name are required' });
   }
+
+  const group = await LookupService.findIssueCategoryGroupById(body.group_id);
+  if (!group) return res.status(404).json({ message: 'Category not found' });
+
   const category = await LookupService.createIssueCategory({
-    category_group: body.category_group.trim(),
+    group_id: body.group_id,
     category_name: body.category_name.trim(),
     description: body.description,
   });
@@ -40,8 +88,14 @@ export async function createIssueCategory(req: AuthRequest, res: Response) {
 export async function updateIssueCategory(req: AuthRequest, res: Response) {
   const categoryId = Number(req.params.id);
   const body = req.body as UpdateIssueCategoryBody;
+
+  if (body.group_id !== undefined) {
+    const group = await LookupService.findIssueCategoryGroupById(body.group_id);
+    if (!group) return res.status(404).json({ message: 'Category not found' });
+  }
+
   const category = await LookupService.updateIssueCategory(categoryId, body);
-  if (!category) return res.status(404).json({ message: 'Issue category not found' });
+  if (!category) return res.status(404).json({ message: 'Issue not found' });
   res.json(category);
 }
 

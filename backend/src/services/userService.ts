@@ -50,6 +50,13 @@ export async function createUser(body: CreateUserBody): Promise<{ user: PublicUs
   return { user: rows[0] as PublicUser, tempPassword };
 }
 
+// Compensating delete for a failed account-creation email. Only ever called on a
+// row created moments earlier that was never handed to anyone, so there is nothing
+// to preserve — a lingering account whose password no one received is unusable.
+export async function deleteUser(userId: number): Promise<void> {
+  await sql`DELETE FROM users WHERE user_id = ${userId}`;
+}
+
 export async function updateUser(userId: number, body: UpdateUserBody): Promise<PublicUser | null> {
   const rows = await sql`
     UPDATE users

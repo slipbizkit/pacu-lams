@@ -135,8 +135,17 @@ export interface ConsultationBody {
   mark_incomplete: boolean;
 }
 
+export interface IssueCategoryGroup {
+  group_id: number;
+  group_name: string;
+  is_active: boolean;
+}
+
+// `category_group` is the group's name, joined in server-side — consumers that
+// only display the grouping (consultation panel, history) can keep reading it.
 export interface IssueCategory {
   category_id: number;
+  group_id: number;
   category_group: string;
   category_name: string;
   description: string | null;
@@ -183,14 +192,23 @@ export interface LawyerOption {
   last_name: string;
 }
 
+export interface CreateIssueCategoryGroupBody {
+  group_name: string;
+}
+
+export interface UpdateIssueCategoryGroupBody {
+  group_name?: string;
+  is_active?: boolean;
+}
+
 export interface CreateIssueCategoryBody {
-  category_group: string;
+  group_id: number;
   category_name: string;
   description?: string;
 }
 
 export interface UpdateIssueCategoryBody {
-  category_group?: string;
+  group_id?: number;
   category_name?: string;
   description?: string;
   is_active?: boolean;
