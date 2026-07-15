@@ -8,6 +8,51 @@ function fmtDate(d: string): string {
   return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+// At-a-glance feedback state for a completed transaction. Online = the client
+// submitted it themselves via the emailed link; manual = staff encoded a paper
+// form; null = none yet.
+function FeedbackStatusBadge({ feedback }: { feedback: CompletedTransaction['feedback'] }) {
+  const base: React.CSSProperties = {
+    fontSize: '0.72rem',
+    fontWeight: 600,
+    padding: '0.2rem 0.55rem',
+  };
+  if (!feedback) {
+    return (
+      <span
+        className="badge rounded-pill d-inline-flex align-items-center gap-1"
+        style={{ ...base, backgroundColor: 'transparent', color: 'var(--pacu-text-muted)', border: '1px solid var(--pacu-border)' }}
+        title="No feedback submitted or encoded"
+      >
+        <i className="bi bi-dash-circle" />
+        No Feedback
+      </span>
+    );
+  }
+  if (feedback.submitted_via === 'online') {
+    return (
+      <span
+        className="badge rounded-pill d-inline-flex align-items-center gap-1"
+        style={{ ...base, backgroundColor: 'color-mix(in srgb, var(--pacu-success) 16%, transparent)', color: 'var(--pacu-success)' }}
+        title="Submitted online by the client"
+      >
+        <i className="bi bi-check-circle-fill" />
+        Submitted
+      </span>
+    );
+  }
+  return (
+    <span
+      className="badge rounded-pill d-inline-flex align-items-center gap-1"
+      style={{ ...base, backgroundColor: 'color-mix(in srgb, var(--pacu-accent) 16%, transparent)', color: 'var(--pacu-accent)' }}
+      title="Manually encoded from a paper form by staff"
+    >
+      <i className="bi bi-pencil-fill" />
+      Encoded
+    </span>
+  );
+}
+
 // June 2026 is the earliest available month
 const EARLIEST = { year: 2026, month: 6 };
 
@@ -181,6 +226,7 @@ export default function SupportStaffHistoryPage() {
                   <th>Client Name</th>
                   <th>Company</th>
                   <th>Lawyer</th>
+                  <th>Feedback</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -207,6 +253,7 @@ export default function SupportStaffHistoryPage() {
                           : <span style={{ opacity: 0.4 }}>—</span>}
                     </td>
                     <td className="text-muted">{row.lawyer_name || <span style={{ opacity: 0.4 }}>—</span>}</td>
+                    <td><FeedbackStatusBadge feedback={row.feedback} /></td>
                     <td>
                       <div className="dropdown">
                         <button
