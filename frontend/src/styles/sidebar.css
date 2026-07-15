@@ -5,13 +5,49 @@
  *    taken out of flex flow so it overlays content instead of squeezing it.
  */
 
+/* DOLE navy panel, continuing the login hero rather than sitting on the themed
+   surface — the sidebar is the same left-hand rail the user just signed in past.
+   Fixed in every theme (like the hero) so the institutional identity doesn't
+   change colour with the theme switcher.
+
+   Redefining the accent tokens here re-skins the nav links, active bar, focus
+   rings and hover states for everything inside, without leaking to other pages.
+   On navy the app's violet accent is illegible, so the accent becomes white. */
 .pacu-sidebar {
+  --pacu-accent: #ffffff;
+  --pacu-accent-rgb: 255, 255, 255;
+  --pacu-accent-hover: #ffffff;
+  --pacu-accent-soft: rgba(255, 255, 255, 0.1);
+  --pacu-accent-contrast: #12358a;
+  --pacu-text: #f4f7fd;
+  --pacu-text-secondary: #b9cbe8;
+  --pacu-text-muted: #8fa9d0;
+  --pacu-border: rgba(255, 255, 255, 0.12);
+  --pacu-surface: transparent;
+
   width: 252px;
   height: 100vh;
   flex-shrink: 0;
   overflow-x: hidden;
   overflow-y: auto;
   transition: width 240ms ease;
+
+  background: linear-gradient(180deg, #14306e 0%, #12358a 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--pacu-text-secondary);
+}
+
+/* The brand lockup is `text-primary`, which resolves to the app accent — on navy
+   that would be violet-on-navy. */
+.pacu-sidebar .pacu-eyebrow.text-primary {
+  color: #ffffff !important;
+}
+
+/* Section headings ("HOME", "ONGOING"). The dark theme separately points these at
+   --bs-info, so that has to be overridden too. */
+.pacu-sidebar .pacu-eyebrow,
+html[data-theme='dark'] .pacu-sidebar .pacu-eyebrow {
+  color: #8fa9d0;
 }
 
 .pacu-sidebar.is-collapsed {

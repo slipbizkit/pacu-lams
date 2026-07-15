@@ -4,31 +4,12 @@
  * into other pages.
  */
 
-/* Login wears DOLE navy, not the app's violet accent: this is the screen that
-   establishes the system as an official DOLE service, and navy is the identity
-   already carried by the letterhead, the outgoing emails, and the PDF exports.
-   Redefining the accent token here re-skins every descendant (buttons, focus
-   rings, OTP boxes, spinners) without leaking into the rest of the app. */
+/* Navy now comes from the global accent token (themes.css) — no local override, so
+   the login screen can't silently drift from the rest of the app. */
 .pacu-auth-shell {
-  --pacu-accent: #1a3a8f;
-  --pacu-accent-rgb: 26, 58, 143;
-  --pacu-accent-hover: #12358a;
-  --pacu-accent-soft: rgba(26, 58, 143, 0.08);
-  --pacu-accent-contrast: #ffffff;
-
   min-height: 100vh;
   display: flex;
   background-color: var(--pacu-bg);
-}
-
-/* On dark surfaces the deep navy fails contrast, so lift it to a legible tint and
-   flip the text on top to dark. */
-html[data-theme='dark'] .pacu-auth-shell {
-  --pacu-accent: #7ba7f0;
-  --pacu-accent-rgb: 123, 167, 240;
-  --pacu-accent-hover: #9dbdf5;
-  --pacu-accent-soft: rgba(123, 167, 240, 0.18);
-  --pacu-accent-contrast: #0f172a;
 }
 
 /* The hero is a fixed institutional panel — deliberately NOT themed, so the DOLE
