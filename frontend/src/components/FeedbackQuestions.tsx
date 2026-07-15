@@ -72,29 +72,52 @@ interface ScaleControlProps {
   onSelect: (value: number | null) => void;
 }
 
+// Faint wash of a rating's colour, so the 1→5 buttons read as a red→green ramp
+// before anything is selected — the direction of the scale is visible at a glance.
+// Translucent, so it adapts to whichever theme is behind it.
+function tint(color: string, pct: number) {
+  return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+}
+
+// The selected fill carries white text. Fixed dark ramp colours (not the theme
+// accent vars) so white clears WCAG AA (≈5:1) regardless of theme — the light-theme
+// amber/green are too pale for white text, and deriving a darkened shade from the
+// theme var is fragile across the light/dark switch.
+const SELECTED_COLORS: Record<number, string> = {
+  1: '#b91c1c', // red-700
+  2: '#b91c1c',
+  3: '#b45309', // amber-700
+  4: '#15803d', // green-700
+  5: '#15803d',
+};
+
 function ScaleControl({ value, allowNA, onSelect }: ScaleControlProps) {
   return (
-    <div className="d-flex gap-2 align-items-stretch">
-      <div className="btn-group flex-grow-1" role="group" aria-label="Rating from 1 to 5">
+    <div>
+      <div className="btn-group w-100" role="group" aria-label="Rating from 1 to 5">
         {[1, 2, 3, 4, 5].map((n) => {
           const selected = value === n;
+          const color = RATING_COLORS[n];
           return (
             <button
               key={n}
               type="button"
               onClick={() => onSelect(n)}
               aria-pressed={selected}
+              aria-label={`${n} — ${SCALE_LABELS[n]}`}
               title={SCALE_LABELS[n]}
-              className="btn btn-sm"
+              className="btn"
               style={{
+                // 46px keeps each target above the ~44px touch-target guideline —
+                // this form is often filled on a phone by elderly clients.
                 flex: '1 1 0',
+                minHeight: 46,
                 fontWeight: 700,
-                fontSize: '0.95rem',
-                padding: '0.4rem 0',
-                border: `1px solid ${selected ? RATING_COLORS[n] : 'var(--pacu-border)'}`,
-                backgroundColor: selected ? RATING_COLORS[n] : 'transparent',
-                color: selected ? '#fff' : 'var(--pacu-text-secondary)',
-                transition: 'background-color 0.1s, color 0.1s, border-color 0.1s',
+                fontSize: '1rem',
+                border: `1px solid ${selected ? SELECTED_COLORS[n] : tint(color, 32)}`,
+                backgroundColor: selected ? SELECTED_COLORS[n] : tint(color, 12),
+                color: selected ? '#fff' : 'var(--pacu-text)',
+                transition: 'background-color 0.12s, color 0.12s, border-color 0.12s',
               }}
             >
               {n}
@@ -102,24 +125,34 @@ function ScaleControl({ value, allowNA, onSelect }: ScaleControlProps) {
           );
         })}
       </div>
+
+      {/* End anchors, repeated on every row so the client never has to scroll back
+          to the legend to remember which way the scale runs. */}
+      <div
+        className="d-flex justify-content-between mt-1"
+        style={{ fontSize: '0.72rem', color: 'var(--pacu-text-muted)' }}
+      >
+        <span>Disagree</span>
+        <span>Agree</span>
+      </div>
+
       {allowNA && (
         <button
           type="button"
           onClick={() => onSelect(null)}
           aria-pressed={value === null}
-          className="btn btn-sm"
+          className="btn w-100 mt-2"
           style={{
-            minWidth: 52,
+            minHeight: 42,
             fontWeight: 600,
-            fontSize: '0.8rem',
-            borderRadius: 'var(--pacu-radius-sm)',
+            fontSize: '0.85rem',
             border: `1px solid ${value === null ? 'var(--pacu-accent)' : 'var(--pacu-border)'}`,
             backgroundColor: value === null ? 'var(--pacu-accent)' : 'transparent',
             color: value === null ? 'var(--pacu-accent-contrast)' : 'var(--pacu-text-secondary)',
-            transition: 'background-color 0.1s, color 0.1s, border-color 0.1s',
+            transition: 'background-color 0.12s, color 0.12s, border-color 0.12s',
           }}
         >
-          N/A
+          Not Applicable
         </button>
       )}
     </div>
@@ -171,25 +204,67 @@ interface FeedbackQuestionsProps {
   onCommentsChange: (value: string) => void;
   // When true, questions are shown under thematic section headers (see SQD_GROUPS).
   grouped?: boolean;
+  // When true, a slim progress bar pins to the top of the viewport as the client
+  // scrolls the 10 questions, so their progress stays visible the whole way down.
+  stickyProgress?: boolean;
 }
 
-export function FeedbackQuestions({ answers, onAnswer, comments, onCommentsChange, grouped = false }: FeedbackQuestionsProps) {
+export function FeedbackQuestions({ answers, onAnswer, comments, onCommentsChange, grouped = false, stickyProgress = false }: FeedbackQuestionsProps) {
   const answeredCount = SQD_KEYS.filter((k) => answers[k] !== undefined).length;
+  const progressPct = Math.round((answeredCount / SQD_KEYS.length) * 100);
 
   return (
     <div>
-      {/* Scale legend + progress */}
+      {stickyProgress && (
+        <div
+          role="progressbar"
+          aria-valuenow={answeredCount}
+          aria-valuemin={0}
+          aria-valuemax={SQD_KEYS.length}
+          aria-label="Feedback progress"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+            // Opaque page colour so the questions scroll cleanly underneath it.
+            backgroundColor: 'var(--pacu-bg)',
+            padding: '0.6rem 0 0.7rem',
+            marginBottom: '1rem',
+            borderBottom: '1px solid var(--pacu-border)',
+          }}
+        >
+          <div className="d-flex justify-content-between align-items-center mb-1" style={{ fontSize: '0.78rem' }}>
+            <span style={{ fontWeight: 600, color: 'var(--pacu-text-secondary)' }}>Your progress</span>
+            <span style={{ color: 'var(--pacu-text-secondary)' }}>{answeredCount} of {SQD_KEYS.length} answered</span>
+          </div>
+          <div style={{ height: 6, borderRadius: 999, backgroundColor: 'var(--pacu-border)', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${progressPct}%`,
+                borderRadius: 999,
+                backgroundColor: 'var(--pacu-accent)',
+                transition: 'width 0.25s ease',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Scale legend + progress. Uses the surface colour (not the page bg) so the
+          card separates from the page in dark mode, where the two are otherwise
+          identical. */}
       <div
         className="mb-4 p-3"
         style={{
-          backgroundColor: 'var(--pacu-bg)',
+          backgroundColor: 'var(--pacu-surface)',
           borderRadius: 'var(--pacu-radius)',
           border: '1px solid var(--pacu-border)',
         }}
       >
         <div className="d-flex justify-content-between align-items-center mb-2">
           <p className="pacu-eyebrow mb-0">Rating Scale</p>
-          <span className="text-muted" style={{ fontSize: '0.75rem' }}>{answeredCount} of {SQD_KEYS.length} answered</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--pacu-text-secondary)' }}>{answeredCount} of {SQD_KEYS.length} answered</span>
         </div>
         <div
           style={{
@@ -200,12 +275,15 @@ export function FeedbackQuestions({ answers, onAnswer, comments, onCommentsChang
           }}
         >
           {[1, 2, 3, 4, 5].map((n) => (
-            <span key={n} className="d-flex align-items-center gap-1 text-muted">
+            <span key={n} className="d-flex align-items-center gap-1" style={{ color: 'var(--pacu-text-secondary)' }}>
               <span
                 className="d-inline-flex align-items-center justify-content-center flex-shrink-0"
                 style={{
+                  // Fixed dark ramp (not the theme accent, which is a pale pastel in
+                  // dark mode that white text can't sit on) so the chip is legible
+                  // in both themes and matches a selected button.
                   width: 18, height: 18, borderRadius: 4, color: '#fff',
-                  fontSize: '0.7rem', fontWeight: 700, backgroundColor: RATING_COLORS[n],
+                  fontSize: '0.7rem', fontWeight: 700, backgroundColor: SELECTED_COLORS[n],
                 }}
               >
                 {n}
