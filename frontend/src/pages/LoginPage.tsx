@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { ApiError, authService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { ThemeSwitcher } from '../components/ThemeSwitcher';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { OtpInput } from '../components/OtpInput';
 
 type Step = 'credentials' | 'password-change' | 'totp' | 'totp-setup';
@@ -314,11 +314,17 @@ export default function LoginPage() {
             <img src="/Bagong Pilipinas Logo.png" alt="Bagong Pilipinas" className="pacu-dole-banner-logo" />
           </div>
           <div className="pacu-auth-topnav-right">
-            <ThemeSwitcher />
+            <ThemeToggle />
           </div>
         </div>
 
         <div className="pacu-auth-card-viewport">
+          {/* System name above the card — shown only on mobile, where the hero panel
+              (which already carries it) is hidden. */}
+          <div className="pacu-auth-mobile-brand d-lg-none">
+            <span className="pacu-display">PACU Legal Assistance Monitoring System</span>
+          </div>
+
           <div
             key={step}
             data-dir={direction}
@@ -548,13 +554,15 @@ export default function LoginPage() {
             )}
           </div>
 
+          {/* Below-card notices — mobile only. On desktop the hero panel carries
+              the same help + access notice, so repeating them here is redundant. */}
           {!success && (
-            <div className="pacu-auth-notice">
+            <div className="pacu-auth-notice d-lg-none">
               <p className="mb-1">
                 <i className="bi bi-question-circle" />
                 {ADMIN_HELP}
               </p>
-              <p className="mb-0 d-lg-none">
+              <p className="mb-0">
                 <i className="bi bi-shield-lock" />
                 Authorized DOLE personnel only. Activity is recorded.
               </p>

@@ -85,6 +85,20 @@
   margin-right: 0.3rem;
 }
 
+/* System name shown above the card on mobile, where the hero panel is hidden. */
+.pacu-auth-mobile-brand {
+  text-align: center;
+  max-width: 380px;
+  margin: 0 auto 1.5rem;
+}
+
+.pacu-auth-mobile-brand .pacu-display {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  color: var(--pacu-text);
+}
+
 .pacu-auth-formside {
   flex: 1 1 auto;
   display: flex;
@@ -113,6 +127,40 @@
 
 html[data-theme='dark'] .pacu-auth-topnav {
   --dole-blue: #7ba7f0;
+}
+
+/* On small phones the DOLE banner's nowrap "Department of Labor and Employment"
+   is wider than the viewport, which forced the whole page to scroll sideways.
+   Switch to a two-item flex row, drop the empty left spacer, let the department
+   text wrap, and shrink the type/logos so the banner fits. */
+@media (max-width: 575.98px) {
+  .pacu-auth-topnav {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    height: auto;
+    min-height: 64px;
+    padding: 0.55rem 0.9rem;
+  }
+  .pacu-auth-topnav > div:first-child {
+    display: none;
+  }
+  .pacu-auth-topnav .pacu-dole-banner {
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .pacu-auth-topnav .pacu-dole-banner-logo {
+    width: 30px;
+    height: 30px;
+  }
+  .pacu-auth-topnav .pacu-dole-banner-republic {
+    font-size: 0.62rem;
+  }
+  .pacu-auth-topnav .pacu-dole-banner-dept {
+    font-size: 0.72rem;
+    white-space: normal;
+    line-height: 1.15;
+  }
 }
 
 .pacu-auth-card-viewport {
