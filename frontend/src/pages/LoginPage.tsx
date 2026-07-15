@@ -272,7 +272,7 @@ export default function LoginPage() {
             Public Assistance and Complaints Unit
           </h1>
           <p className="pacu-auth-hero-lead mb-0">
-            Internal case management for legal assistance provided to walk-in clients.
+            Internal legal assistance management system that records, stores, and provides information to clients.
           </p>
         </div>
 
