@@ -3,8 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { clientService } from '../services/api';
 import type { SqdKey } from '../types/client';
-import { BrandMark } from '../components/BrandMark';
-import { ThemeSwitcher } from '../components/ThemeSwitcher';
+import { ThemeToggle } from '../components/ThemeToggle';
 import {
   FeedbackQuestions,
   EMPTY_FEEDBACK_ANSWERS,
@@ -96,9 +95,12 @@ export default function FeedbackPage() {
     const parsed = toSubmitAnswers(answers);
     if ('missingIndex' in parsed) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Please answer every question',
-        text: `Question ${parsed.missingIndex + 1} hasn't been answered yet: “${SQD_STATEMENTS[parsed.missingIndex]}”`,
+        icon: 'info',
+        title: 'Almost there!',
+        html: `Please answer all the questions before submitting — your complete feedback would greatly help us improve our service.<br><br>`
+          + `Question ${parsed.missingIndex + 1} still needs an answer:<br><em>“${SQD_STATEMENTS[parsed.missingIndex]}”</em>`,
+        confirmButtonText: 'Continue',
+        confirmButtonColor: 'var(--pacu-accent)',
       });
       return;
     }
@@ -129,12 +131,19 @@ export default function FeedbackPage() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
-      <div className="d-flex justify-content-between align-items-center p-4">
-        <div className="d-flex align-items-center gap-2">
-          <BrandMark size={30} />
-          <span className="pacu-display fs-5">PACU Feedback</span>
+      <div className="d-flex justify-content-between align-items-center gap-2 p-4">
+        <div className="d-flex align-items-center gap-3">
+          <img
+            src="/dole-logo.png"
+            alt="Department of Labor and Employment"
+            style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }}
+          />
+          <div className="d-flex flex-column" style={{ lineHeight: 1.2 }}>
+            <span className="pacu-display" style={{ fontSize: '1.05rem' }}>Department of Labor and Employment</span>
+            <span className="text-muted" style={{ fontSize: '0.85rem' }}>Feedback Form</span>
+          </div>
         </div>
-        <ThemeSwitcher />
+        <ThemeToggle />
       </div>
 
       <div className="d-flex justify-content-center px-3 pb-5">
@@ -171,6 +180,7 @@ export default function FeedbackPage() {
                 comments={comments}
                 onCommentsChange={setComments}
                 grouped
+                stickyProgress
               />
 
               <button className="btn btn-primary w-100 mt-3" type="submit" disabled={submitting}>
