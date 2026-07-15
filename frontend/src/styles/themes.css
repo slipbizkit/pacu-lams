@@ -12,10 +12,12 @@ html[data-theme='light'] {
   --pacu-text-secondary: #475569;
   --pacu-text-muted: #94a3b8;
   --pacu-border: #e2e8f0;
-  --pacu-accent: #8b5cf6;
-  --pacu-accent-rgb: 139, 92, 246;
-  --pacu-accent-hover: #7c3aed;
-  --pacu-accent-soft: rgba(139, 92, 246, 0.08);
+  /* DOLE navy — the identity carried by the letterhead, outgoing emails and PDF
+     exports. Matches the login hero and sidebar. */
+  --pacu-accent: #1a3a8f;
+  --pacu-accent-rgb: 26, 58, 143;
+  --pacu-accent-hover: #12358a;
+  --pacu-accent-soft: rgba(26, 58, 143, 0.08);
   --pacu-accent-contrast: #ffffff;
   --pacu-success: #16a34a;
   --pacu-warning: #d97706;
@@ -31,10 +33,10 @@ html[data-theme='soft-light'] {
   --pacu-text-secondary: #6b5a3e;
   --pacu-text-muted: #a6926a;
   --pacu-border: #e0d0a8;
-  --pacu-accent: #8b5cf6;
-  --pacu-accent-rgb: 139, 92, 246;
-  --pacu-accent-hover: #7c3aed;
-  --pacu-accent-soft: rgba(139, 92, 246, 0.1);
+  --pacu-accent: #1a3a8f;
+  --pacu-accent-rgb: 26, 58, 143;
+  --pacu-accent-hover: #12358a;
+  --pacu-accent-soft: rgba(26, 58, 143, 0.1);
   --pacu-accent-contrast: #ffffff;
   --pacu-success: #16a34a;
   --pacu-warning: #d97706;
@@ -50,11 +52,13 @@ html[data-theme='dark'] {
   --pacu-text-secondary: #94a3b8;
   --pacu-text-muted: #475569;
   --pacu-border: #334155;
-  --pacu-accent: #c4b5fd;
-  --pacu-accent-rgb: 196, 181, 253;
-  --pacu-accent-hover: #ddd6fe;
-  --pacu-accent-soft: rgba(196, 181, 253, 0.18);
-  --pacu-accent-contrast: #1e1b4b;
+  /* Deep navy is illegible on a dark surface, so dark mode carries a lifted tint of
+     the same hue rather than the #1a3a8f used in the light themes. */
+  --pacu-accent: #7ba7f0;
+  --pacu-accent-rgb: 123, 167, 240;
+  --pacu-accent-hover: #9dbdf5;
+  --pacu-accent-soft: rgba(123, 167, 240, 0.18);
+  --pacu-accent-contrast: #0f172a;
   --pacu-success: #4ade80;
   --pacu-warning: #fbbf24;
   --pacu-danger: #f87171;
