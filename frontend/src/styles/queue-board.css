@@ -1,0 +1,344 @@
+/*
+ * Lobby-TV queue board. Self-contained light palette (independent of the app theme
+ * switcher — this display is light mode only) tuned for legibility across a room.
+ * Built on the DOLE navy identity.
+ */
+.pacu-board {
+  --board-bg: #f1f5f9;
+  --board-bg-2: #e2e8f0;
+  --board-surface: #ffffff;
+  --board-surface-2: #f8fafc;
+  --board-border: #dbe3ee;
+  --board-text: #0f172a;
+  --board-muted: #64748b;
+  --board-accent: #1a3a8f;
+  --board-priority: #15803d;
+  --board-priority-soft: rgba(22, 163, 74, 0.12);
+  --board-priority-border: rgba(22, 163, 74, 0.5);
+  --board-live: #16a34a;
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 90% at 100% 0%, var(--board-bg-2) 0%, var(--board-bg) 55%);
+  color: var(--board-text);
+  font-family: var(--pacu-font-body);
+  overflow: hidden;
+}
+
+/* ---- Header ---- */
+.pacu-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: clamp(1rem, 2.2vh, 1.75rem) clamp(1.5rem, 3vw, 3rem);
+  border-bottom: 1px solid var(--board-border);
+  background: var(--board-surface);
+}
+
+.pacu-board-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pacu-board-brand img {
+  width: clamp(44px, 4.5vw, 64px);
+  height: clamp(44px, 4.5vw, 64px);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.pacu-board-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.pacu-board-brand-republic {
+  font-size: clamp(0.7rem, 1vw, 0.95rem);
+  font-weight: 600;
+  color: var(--board-muted);
+}
+
+.pacu-board-brand-dept {
+  font-family: var(--pacu-font-display);
+  font-size: clamp(1.05rem, 1.8vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pacu-board-brand-unit {
+  font-size: clamp(0.7rem, 1vw, 0.95rem);
+  font-weight: 600;
+  color: var(--board-accent);
+  letter-spacing: 0.02em;
+}
+
+.pacu-board-clock {
+  text-align: right;
+  line-height: 1.05;
+}
+
+.pacu-board-time {
+  font-family: var(--pacu-font-mono);
+  font-size: clamp(1.6rem, 3.4vw, 3rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.pacu-board-date {
+  font-size: clamp(0.72rem, 1.1vw, 1.05rem);
+  color: var(--board-muted);
+  font-weight: 500;
+}
+
+/* ---- Body: two columns ---- */
+.pacu-board-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: clamp(1rem, 2vw, 2rem);
+  padding: clamp(1rem, 2.4vh, 2rem) clamp(1.5rem, 3vw, 3rem);
+  min-height: 0;
+}
+
+.pacu-board-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pacu-board-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: clamp(0.75rem, 1.6vh, 1.25rem);
+}
+
+.pacu-board-panel-title {
+  font-family: var(--pacu-font-display);
+  font-size: clamp(1.1rem, 2vw, 1.9rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pacu-board-count {
+  margin-left: auto;
+  font-family: var(--pacu-font-mono);
+  font-size: clamp(0.85rem, 1.3vw, 1.2rem);
+  font-weight: 600;
+  color: var(--board-muted);
+  background: var(--board-surface);
+  border: 1px solid var(--board-border);
+  border-radius: 999px;
+  padding: 0.15em 0.8em;
+}
+
+.pacu-board-live-dot {
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  background: var(--board-live);
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6);
+  animation: pacu-board-pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pacu-board-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
+  70% { box-shadow: 0 0 0 0.7em rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+/* ---- Now Serving cards ---- */
+.pacu-board-serving {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 1.5vw, 1.25rem);
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.pacu-board-serving-card {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.75rem, 1.5vw, 1.25rem);
+  background: linear-gradient(135deg, var(--board-surface-2), var(--board-surface));
+  border: 1px solid var(--board-border);
+  border-left: 4px solid var(--board-accent);
+  border-radius: var(--pacu-radius-lg);
+  padding: clamp(0.85rem, 1.8vh, 1.4rem) clamp(1rem, 1.8vw, 1.6rem);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.pacu-board-serving-num {
+  font-family: var(--pacu-font-mono);
+  font-size: clamp(2rem, 4.5vw, 3.6rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--board-accent);
+}
+
+.pacu-board-serving-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.pacu-board-serving-label {
+  font-size: clamp(0.62rem, 0.9vw, 0.8rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--board-muted);
+}
+
+.pacu-board-serving-lawyer {
+  font-family: var(--pacu-font-display);
+  font-size: clamp(1rem, 1.7vw, 1.5rem);
+  font-weight: 600;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Waiting tiles ---- */
+.pacu-board-waiting {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(84px, 8vw, 130px), 1fr));
+  grid-auto-rows: min-content;
+  gap: clamp(0.6rem, 1.1vw, 1rem);
+  overflow: hidden;
+  align-content: start;
+}
+
+.pacu-board-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15em;
+  aspect-ratio: 5 / 4;
+  border-radius: var(--pacu-radius);
+  background: var(--board-surface);
+  border: 1px solid var(--board-border);
+}
+
+.pacu-board-tile-label {
+  font-family: var(--pacu-font-body);
+  font-size: clamp(0.5rem, 0.95vw, 0.78rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  color: var(--board-muted);
+}
+
+.pacu-board-tile-num {
+  font-family: var(--pacu-font-mono);
+  font-size: clamp(1.4rem, 2.7vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pacu-board-tile--priority {
+  background: var(--board-priority-soft);
+  border-color: var(--board-priority-border);
+}
+
+.pacu-board-tile--priority .pacu-board-tile-label,
+.pacu-board-tile--priority .pacu-board-tile-num {
+  color: var(--board-priority);
+}
+
+.pacu-board-tile--next {
+  border-color: var(--board-accent);
+  box-shadow: 0 0 0 2px rgba(123, 167, 240, 0.35);
+}
+
+/* ---- Empty states ---- */
+.pacu-board-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  color: var(--board-muted);
+  text-align: center;
+  border: 1px dashed var(--board-border);
+  border-radius: var(--pacu-radius-lg);
+}
+
+.pacu-board-empty i {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  opacity: 0.7;
+}
+
+.pacu-board-empty span {
+  font-size: clamp(0.9rem, 1.4vw, 1.3rem);
+  font-weight: 500;
+}
+
+/* ---- Footer ---- */
+.pacu-board-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: clamp(0.5rem, 1.2vh, 0.9rem) clamp(1.5rem, 3vw, 3rem);
+  border-top: 1px solid var(--board-border);
+  background: var(--board-surface);
+  font-size: clamp(0.68rem, 1vw, 0.95rem);
+  color: var(--board-muted);
+}
+
+.pacu-board-legend {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 2vw, 2rem);
+}
+
+.pacu-board-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pacu-board-legend-swatch {
+  width: 1em;
+  height: 1em;
+  border-radius: 0.25em;
+  border: 1px solid var(--board-border);
+}
+
+.pacu-board-legend-swatch--priority {
+  background: var(--board-priority-soft);
+  border-color: var(--board-priority-border);
+}
+
+.pacu-board-legend-swatch--regular {
+  background: var(--board-surface);
+}
+
+.pacu-board-updated {
+  font-family: var(--pacu-font-mono);
+}
+
+/* ---- Loading ---- */
+.pacu-board-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #64748b;
+}

@@ -64,6 +64,22 @@ export interface Client {
   updated_at: string;
 }
 
+// Lobby-TV queue board — deliberately PII-free (no client names).
+export interface QueueBoardWaiting {
+  queue_number: number;
+  is_priority: boolean;
+}
+
+export interface QueueBoardInProgress {
+  queue_number: number;
+  lawyer_name: string;
+}
+
+export interface QueueBoard {
+  waiting: QueueBoardWaiting[];
+  in_progress: QueueBoardInProgress[];
+}
+
 export interface HistoryFilters {
   date_from?: string;
   date_to?: string;

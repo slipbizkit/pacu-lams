@@ -5,20 +5,26 @@ interface QueueSlot {
   transactionDate: string;
 }
 
+// The PACU office runs on Philippine local time, so the queue day (and its sequential
+// numbering) must roll over at Manila midnight — not the database session's UTC midnight.
+const PACU_TIMEZONE = 'Asia/Manila';
+
 // Atomic per-day counter: ON CONFLICT DO UPDATE increments in the same statement,
 // so concurrent intake submissions never race on the same queue number.
+//
+// The day is pinned to Manila local time, and Postgres formats the date to text
+// (`to_char`) so it comes back as a plain 'YYYY-MM-DD' string. This deliberately avoids
+// the neon DATE -> JS Date -> toISOString() round-trip, which rendered the *UTC* calendar
+// day and shifted the queue date back by one across the +08:00 boundary.
 export async function nextQueueSlot(): Promise<QueueSlot> {
   const rows = await sql`
     INSERT INTO daily_queue_counters (queue_date, last_number)
-    VALUES (CURRENT_DATE, 1)
+    VALUES ((now() AT TIME ZONE ${PACU_TIMEZONE}::text)::date, 1)
     ON CONFLICT (queue_date) DO UPDATE SET last_number = daily_queue_counters.last_number + 1
-    RETURNING queue_date, last_number
+    RETURNING to_char(queue_date, 'YYYY-MM-DD') AS transaction_date, last_number
   `;
-  const row = rows[0] as { queue_date: Date | string; last_number: number };
-  const raw = row.queue_date;
-  // Neon returns DATE columns as Date objects; serialize to YYYY-MM-DD (UTC) for consistent formatting.
-  const transactionDate = raw instanceof Date ? raw.toISOString().slice(0, 10) : raw;
-  return { queueNumber: row.last_number, transactionDate };
+  const row = rows[0] as { transaction_date: string; last_number: number };
+  return { queueNumber: row.last_number, transactionDate: row.transaction_date };
 }
 
 export function buildReferenceNo(transactionDate: string, queueNumber: number): string {

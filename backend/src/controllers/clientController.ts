@@ -67,6 +67,12 @@ export async function listQueue(_req: AuthRequest, res: Response) {
   res.json(clients);
 }
 
+// Public — no auth. Lobby-TV board: PII-free queue numbers + serving lawyer only.
+export async function getQueueBoard(_req: Request, res: Response) {
+  const board = await ClientService.getQueueBoard();
+  res.json(board);
+}
+
 const ASSIGN_ERROR_RESPONSES: Record<string, { status: number; message: string }> = {
   not_found: { status: 404, message: 'Client not found' },
   not_waiting: { status: 409, message: 'This client is no longer waiting' },

@@ -31,6 +31,48 @@ export async function createIntake(body: IntakeBody): Promise<Client> {
   return rows[0] as Client;
 }
 
+export interface QueueBoardWaiting {
+  queue_number: number;
+  is_priority: boolean;
+}
+
+export interface QueueBoardInProgress {
+  queue_number: number;
+  lawyer_name: string;
+}
+
+export interface QueueBoardData {
+  waiting: QueueBoardWaiting[];
+  in_progress: QueueBoardInProgress[];
+}
+
+// Public lobby-TV board. Deliberately PII-free: only queue numbers, a priority flag,
+// and the serving lawyer's name (staff, not client data) leave the server. Incomplete
+// transactions are excluded — those are parked by the lawyer and are not "in progress"
+// from the waiting client's point of view.
+export async function getQueueBoard(): Promise<QueueBoardData> {
+  const [waiting, inProgress] = await Promise.all([
+    sql`
+      SELECT queue_number, (is_senior OR is_pwd OR is_pregnant) AS is_priority
+      FROM clients
+      WHERE status = 'waiting'
+      ORDER BY (is_senior OR is_pwd OR is_pregnant) DESC, transaction_date ASC, queue_number ASC
+    `,
+    sql`
+      SELECT c.queue_number, u.first_name || ' ' || u.last_name AS lawyer_name
+      FROM clients c
+      JOIN users u ON u.user_id = c.assigned_lawyer_id
+      WHERE c.status IN ('assigned', 'in_progress')
+      ORDER BY c.queue_number ASC
+    `,
+  ]);
+
+  return {
+    waiting: waiting as QueueBoardWaiting[],
+    in_progress: inProgress as QueueBoardInProgress[],
+  };
+}
+
 // Priority clients (senior / PWD / pregnant) first, then FIFO by queue number.
 export async function listWaiting(): Promise<Client[]> {
   const rows = await sql`

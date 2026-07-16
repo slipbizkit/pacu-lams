@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage';
 import IntakePage from './pages/IntakePage';
 import FeedbackPage from './pages/FeedbackPage';
 import QueuePage from './pages/QueuePage';
+import QueueBoardPage from './pages/QueueBoardPage';
 import MyClientsPage from './pages/MyClientsPage';
 import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import CancelledTransactionsPage from './pages/CancelledTransactionsPage';
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/intake" element={<IntakePage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
+          <Route path="/queue-board" element={<QueueBoardPage />} />
 
           <Route element={<PrivateRoute />}>
             <Route element={<DashboardLayout />}>

@@ -12,6 +12,9 @@ router.post('/', asyncHandler(ClientController.intake));
 router.get('/feedback/:referenceNo', asyncHandler(ClientController.getFeedbackStatus));
 router.post('/feedback/:referenceNo', asyncHandler(ClientController.submitFeedback));
 
+// Public — no auth. Lobby-TV queue board (PII-free), refreshed by the display itself.
+router.get('/queue-board', asyncHandler(ClientController.getQueueBoard));
+
 router.get('/queue', requireAuth, asyncHandler(ClientController.listQueue));
 router.post(
   '/:id/assign',
