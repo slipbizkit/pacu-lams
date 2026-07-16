@@ -5,7 +5,7 @@ import { userService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { User, UserRole, UserSex } from '../types/user';
 
-const ROLE_LABELS: Record<UserRole, string> = { admin: 'Admin', lawyer: 'Lawyer', personnel: 'Personnel', support_staff: 'Support Staff' };
+const ROLE_LABELS: Record<UserRole, string> = { admin: 'Admin', lawyer: 'Lawyer', personnel: 'Personnel', support_staff: 'Support Staff', director: 'Director of Legal Service' };
 
 const EMPTY_FORM = { email: '', first_name: '', middle_name: '', last_name: '', position: '', sex: '' as UserSex | '', role: 'personnel' as UserRole };
 
@@ -171,17 +171,20 @@ export default function AdminUsersPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { user, tempPassword } = await userService.create({
+      const { user, tempPassword, emailSent } = await userService.create({
         ...form,
         sex: form.sex || undefined,
       });
       setUsers((prev) => [...prev, user].sort((a, b) => a.last_name.localeCompare(b.last_name)));
       hideModal();
       await Swal.fire({
-        icon: 'success',
-        title: 'Account created',
-        html: `Sign-in details were emailed to <b>${user.email}</b>.<br><br>
-               In case they don't receive it, the temporary password is:<br><code>${tempPassword}</code>`,
+        icon: emailSent ? 'success' : 'warning',
+        title: emailSent ? 'Account created' : 'Account created — email not sent',
+        html: emailSent
+          ? `Sign-in details were emailed to <b>${user.email}</b>.<br><br>
+             In case they don't receive it, the temporary password is:<br><code>${tempPassword}</code>`
+          : `The account was created, but the welcome email could not be sent. Share this temporary
+             password with <b>${user.first_name} ${user.last_name}</b> directly:<br><br><code>${tempPassword}</code>`,
         confirmButtonText: 'Got it',
       });
     } catch (err) {
@@ -313,6 +316,7 @@ export default function AdminUsersPage() {
                       <option value="personnel">Personnel</option>
                       <option value="lawyer">Lawyer</option>
                       <option value="admin">Admin</option>
+                      <option value="director">Director of Legal Service</option>
                     </select>
                   </div>
                   <div className="col-md-6">

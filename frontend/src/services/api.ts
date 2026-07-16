@@ -192,6 +192,9 @@ export const clientService = {
   listMine: () => apiFetch<Client[]>('/clients/mine'),
   getMine: (clientId: number) =>
     apiFetch<{ client: Client; issues: IssueTag[] }>(`/clients/mine/${clientId}`),
+  // Read-only issue tags for any completed transaction (Director oversight view).
+  getCompletedIssues: (clientId: number) =>
+    apiFetch<IssueTag[]>(`/clients/${clientId}/issues`),
   saveConsultation: (clientId: number, body: ConsultationBody) =>
     apiFetch<Client>(`/clients/${clientId}/consultation`, {
       method: 'PATCH',

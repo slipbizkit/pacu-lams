@@ -328,6 +328,7 @@ const ROLE_LABELS: Record<string, string> = {
   lawyer: 'Lawyer',
   personnel: 'PACU Personnel',
   support_staff: 'Support Staff',
+  director: 'Director of Legal Service',
 };
 
 function buildAccountCreatedHtml(params: {

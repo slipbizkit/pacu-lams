@@ -137,6 +137,23 @@ export async function getMine(req: AuthRequest, res: Response) {
   res.json({ client, issues });
 }
 
+// Read-only issue tags for a completed transaction — used by the Director's
+// oversight view modal, which (unlike a lawyer) doesn't own the client.
+export async function getCompletedIssues(req: AuthRequest, res: Response) {
+  const clientId = Number(req.params.id);
+  if (!Number.isInteger(clientId)) {
+    return res.status(400).json({ message: 'Invalid client id' });
+  }
+
+  const client = await ClientService.findForReferral(clientId);
+  if (!client || client.status !== 'completed') {
+    return res.status(404).json({ message: 'Completed transaction not found' });
+  }
+
+  const issues = await ClientService.getIssueTags(clientId);
+  res.json(issues);
+}
+
 const CONSULTATION_ERROR_STATUS: Record<string, number> = {
   not_found: 404,
   not_active: 409,

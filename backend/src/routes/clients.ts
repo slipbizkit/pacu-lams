@@ -26,9 +26,12 @@ router.get('/cancelled', requireAuth, requireRole('lawyer'), asyncHandler(Client
 router.get('/all-cancelled', requireAuth, requireRole('personnel', 'support_staff', 'admin'), asyncHandler(ClientController.listAllCancelled));
 router.post('/:id/restore', requireAuth, requireRole('personnel', 'support_staff', 'admin'), asyncHandler(ClientController.restoreToQueue));
 router.get('/ss-dashboard', requireAuth, requireRole('support_staff'), asyncHandler(ClientController.getSupportStaffDashboard));
-router.get('/dashboard', requireAuth, requireRole('personnel', 'lawyer', 'admin'), asyncHandler(ClientController.getDashboard));
-router.get('/dashboard/charts', requireAuth, requireRole('personnel', 'lawyer', 'admin'), asyncHandler(ClientController.getDashboardCharts));
-router.get('/all-history', requireAuth, requireRole('personnel', 'support_staff', 'admin'), asyncHandler(ClientController.listAllHistory));
+router.get('/dashboard', requireAuth, requireRole('personnel', 'lawyer', 'admin', 'director'), asyncHandler(ClientController.getDashboard));
+router.get('/dashboard/charts', requireAuth, requireRole('personnel', 'lawyer', 'admin', 'director'), asyncHandler(ClientController.getDashboardCharts));
+router.get('/all-history', requireAuth, requireRole('personnel', 'support_staff', 'admin', 'director'), asyncHandler(ClientController.listAllHistory));
+// Read-only issue tags for any completed transaction — the Director's view modal
+// needs these but, unlike a lawyer, does not own the client (so /mine/:id won't do).
+router.get('/:id/issues', requireAuth, requireRole('director', 'admin'), asyncHandler(ClientController.getCompletedIssues));
 router.post('/:id/remove', requireAuth, requireRole('support_staff', 'personnel', 'admin'), asyncHandler(ClientController.removeFromQueue));
 router.get('/mine', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.listMine));
 router.get('/mine/:id', requireAuth, requireRole('lawyer'), asyncHandler(ClientController.getMine));

@@ -4,7 +4,7 @@ import * as UserService from '../services/userService';
 import { sendAccountCreated, sendPasswordReset } from '../services/emailService';
 import { CreateUserBody, UpdateUserBody, UserRole, UserSex } from '../types/user';
 
-const ROLE_VALUES: UserRole[] = ['admin', 'lawyer', 'personnel'];
+const ROLE_VALUES: UserRole[] = ['admin', 'lawyer', 'personnel', 'director'];
 const SEX_VALUES: UserSex[] = ['male', 'female'];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -48,9 +48,10 @@ export async function createUser(req: AuthRequest, res: Response) {
     last_name: body.last_name.trim(),
   });
 
-  // The temporary password only exists in this email — an account whose owner never
-  // received it is unusable, so a failed send rolls the account back rather than
-  // leaving a dead row that also squats on the (unique) email address.
+  // The account is already persisted; if the welcome email fails we still return
+  // success so the admin can relay the temporary password shown on screen. Mirrors
+  // the password-reset flow rather than rolling the account back on a failed send.
+  let emailSent = false;
   try {
     await sendAccountCreated({
       toEmail: user.email,
@@ -59,24 +60,12 @@ export async function createUser(req: AuthRequest, res: Response) {
       tempPassword,
       role: user.role,
     });
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : 'Unknown email error';
-    try {
-      await UserService.deleteUser(user.user_id);
-    } catch {
-      // Rollback failed too — the admin must clean up, so say so plainly.
-      return res.status(502).json({
-        message:
-          `The account could not be emailed (${reason}), and rolling it back also failed. ` +
-          `The account exists but is unusable — delete it and try again.`,
-      });
-    }
-    return res.status(502).json({
-      message: `The account was not created because the email could not be sent: ${reason}`,
-    });
+    emailSent = true;
+  } catch {
+    emailSent = false;
   }
 
-  res.status(201).json({ user, tempPassword });
+  res.status(201).json({ user, tempPassword, emailSent });
 }
 
 export async function updateUser(req: AuthRequest, res: Response) {

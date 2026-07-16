@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'lawyer' | 'personnel' | 'support_staff';
+export type UserRole = 'admin' | 'lawyer' | 'personnel' | 'support_staff' | 'director';
 export type UserSex = 'male' | 'female';
 
 export interface User {

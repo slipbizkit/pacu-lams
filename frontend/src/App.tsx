@@ -22,6 +22,7 @@ import AdminOfficesPage from './pages/AdminOfficesPage';
 import AdminReportsPage from './pages/AdminReportsPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import PersonnelCancelledPage from './pages/PersonnelCancelledPage';
+import DirectorHistoryPage from './pages/DirectorHistoryPage';
 
 export default function App() {
   return (
@@ -67,7 +68,13 @@ export default function App() {
             </Route>
           </Route>
 
-          <Route element={<PrivateRoute allowedRoles={['personnel', 'lawyer', 'admin', 'support_staff']} />}>
+          <Route element={<PrivateRoute allowedRoles={['director']} />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="/director/history" element={<DirectorHistoryPage />} />
+            </Route>
+          </Route>
+
+          <Route element={<PrivateRoute allowedRoles={['personnel', 'lawyer', 'admin', 'support_staff', 'director']} />}>
             <Route element={<DashboardLayout />}>
               <Route path="/account" element={<MyAccountPage />} />
             </Route>

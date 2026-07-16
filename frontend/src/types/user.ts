@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'lawyer' | 'personnel' | 'support_staff';
+export type UserRole = 'admin' | 'lawyer' | 'personnel' | 'support_staff' | 'director';
 export type UserSex = 'male' | 'female';
 
 export interface User {
@@ -58,9 +58,10 @@ export interface UpdateUserBody {
   is_active?: boolean;
 }
 
-// No `emailSent` flag: account creation now fails outright if the email cannot be
-// sent, so reaching this result means it was delivered.
 export interface CreateUserResult {
   user: User;
   tempPassword: string;
+  // False when the welcome email couldn't be sent — the account is still created,
+  // and the admin relays the temporary password shown on screen.
+  emailSent: boolean;
 }
