@@ -53,6 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Fire-and-forget: invalidate the session on the server. Must run before
+    // removeItem so the token is still in localStorage when the request is made.
+    authService.logout();
     localStorage.removeItem('token');
     setToken(null);
     setUserState(null);

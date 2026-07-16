@@ -1,11 +1,16 @@
+import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { AccessTokenPayload, TempTokenPayload, User } from '../types/user';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-export function signAccessToken(user: Pick<User, 'user_id' | 'email' | 'role'>): string {
-  const payload = { id: user.user_id, email: user.email, role: user.role };
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '60m' });
+export const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
+
+export function signAccessToken(user: Pick<User, 'user_id' | 'email' | 'role'>): { token: string; jti: string } {
+  const jti = randomUUID();
+  const payload = { id: user.user_id, email: user.email, role: user.role, jti };
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '60m' });
+  return { token, jti };
 }
 
 export function signTempToken(userId: number): string {

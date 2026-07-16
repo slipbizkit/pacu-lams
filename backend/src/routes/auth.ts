@@ -20,6 +20,7 @@ router.post('/totp/setup-init', accountSetupLimiter, asyncHandler(AuthController
 router.post('/totp/setup-confirm', accountSetupLimiter, asyncHandler(AuthController.setupConfirmPending));
 
 router.get('/me', requireAuth, asyncHandler(AuthController.me));
+router.post('/logout', requireAuth, asyncHandler(AuthController.logout));
 router.post('/refresh', requireAuth, asyncHandler(AuthController.refresh));
 router.post('/change-password', requireAuth, asyncHandler(AuthController.changePassword));
 router.post('/totp/setup', requireAuth, asyncHandler(AuthController.setupTotp));

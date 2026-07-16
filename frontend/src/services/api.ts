@@ -18,6 +18,7 @@ import type {
   IssueCategoryGroup,
   IssueTag,
   LawyerOption,
+  QueueBoard,
   ReferredOffice,
   MonthlyReport,
   SubmitFeedbackBody,
@@ -134,6 +135,16 @@ export const authService = {
       method: 'POST',
       body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
     }),
+  // Raw fetch so the 401 handler in apiFetch doesn't fire a session-expired event
+  // when the user explicitly signs out (which would double-trigger the modal).
+  logout: () => {
+    const token = localStorage.getItem('token');
+    if (!token) return Promise.resolve();
+    return fetch(`${BASE_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  },
 };
 
 export const clientService = {
@@ -143,6 +154,7 @@ export const clientService = {
       body: JSON.stringify(body),
     }),
   listQueue: () => apiFetch<Client[]>('/clients/queue'),
+  queueBoard: () => apiFetch<QueueBoard>('/clients/queue-board'),
   assign: (clientId: number, lawyerId: number) =>
     apiFetch<Client>(`/clients/${clientId}/assign`, {
       method: 'POST',

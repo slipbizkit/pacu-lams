@@ -1,5 +1,6 @@
 import sql from '../db';
 import { User } from '../types/user';
+import { ACCESS_TOKEN_TTL_MS } from '../utils/jwt';
 
 export async function findByEmail(email: string): Promise<User | null> {
   const rows = await sql`
@@ -31,4 +32,24 @@ export async function changePassword(userId: number, newPasswordHash: string): P
     SET password_hash = ${newPasswordHash}, must_change_password = FALSE
     WHERE user_id = ${userId}
   `;
+}
+
+// Atomically replace any existing session for this user with a new one.
+// Two sequential statements are safe here: the DELETE + INSERT happen within
+// the same HTTP connection, and this is the only code path that writes sessions.
+export async function upsertSession(userId: number, jti: string): Promise<void> {
+  const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
+  await sql`DELETE FROM user_sessions WHERE user_id = ${userId}`;
+  await sql`INSERT INTO user_sessions (user_id, jti, expires_at) VALUES (${userId}, ${jti}, ${expiresAt})`;
+}
+
+export async function validateSession(jti: string): Promise<boolean> {
+  const rows = await sql`
+    SELECT 1 FROM user_sessions WHERE jti = ${jti} AND expires_at > now() LIMIT 1
+  `;
+  return rows.length > 0;
+}
+
+export async function deleteSession(userId: number): Promise<void> {
+  await sql`DELETE FROM user_sessions WHERE user_id = ${userId}`;
 }

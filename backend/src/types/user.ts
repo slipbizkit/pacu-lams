@@ -25,6 +25,7 @@ export interface AccessTokenPayload {
   id: number;
   email: string;
   role: UserRole;
+  jti: string;
   iat: number;
   exp: number;
 }

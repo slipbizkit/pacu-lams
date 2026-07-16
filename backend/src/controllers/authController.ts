@@ -101,7 +101,8 @@ export async function verifyTotp(req: Request, res: Response) {
   });
   if (!valid) return res.status(401).json({ message: 'Invalid 2FA code' });
 
-  const token = signAccessToken(user);
+  const { token, jti } = signAccessToken(user);
+  await AuthService.upsertSession(user.user_id, jti);
   res.json({ token, user: toPublicUser(user) });
 }
 
@@ -150,7 +151,8 @@ export async function setupConfirmPending(req: Request, res: Response) {
 
   await AuthService.enableTotp(user.user_id);
 
-  const token = signAccessToken(user);
+  const { token, jti } = signAccessToken(user);
+  await AuthService.upsertSession(user.user_id, jti);
   res.json({ token, user: toPublicUser(user) });
 }
 
@@ -225,6 +227,12 @@ export async function changePassword(req: AuthRequest, res: Response) {
 export async function refresh(req: AuthRequest, res: Response) {
   const user = await AuthService.findById(req.user!.id);
   if (!user) return res.status(404).json({ message: 'User not found' });
-  const token = signAccessToken(user);
+  const { token, jti } = signAccessToken(user);
+  await AuthService.upsertSession(user.user_id, jti);
   res.json({ token });
+}
+
+export async function logout(req: AuthRequest, res: Response) {
+  await AuthService.deleteSession(req.user!.id);
+  res.json({ message: 'Logged out' });
 }
