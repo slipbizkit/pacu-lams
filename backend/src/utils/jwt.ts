@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
-import { AccessTokenPayload, TempTokenPayload, User } from '../types/user';
+import { AccessTokenPayload, TerminalTokenPayload, TempTokenPayload, User } from '../types/user';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -24,4 +24,14 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
 
 export function verifyTempToken(token: string): TempTokenPayload {
   return jwt.verify(token, JWT_SECRET) as TempTokenPayload;
+}
+
+export function signTerminalToken(): string {
+  return jwt.sign({ type: 'terminal' }, JWT_SECRET, { expiresIn: '16h' });
+}
+
+export function verifyTerminalToken(token: string): TerminalTokenPayload {
+  const payload = jwt.verify(token, JWT_SECRET) as TerminalTokenPayload;
+  if (payload.type !== 'terminal') throw new Error('Not a terminal token');
+  return payload;
 }

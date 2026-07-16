@@ -1,19 +1,17 @@
 import { Router } from 'express';
-import { requireAuth, requireRole } from '../middleware/auth';
+import { requireAuth, requireTerminal, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import * as ClientController from '../controllers/clientController';
 
 const router = Router();
 
-// Public — no auth. This is the one open intake screen; there is no authenticated variant.
-router.post('/', asyncHandler(ClientController.intake));
+// Kiosk-only — requires a valid kiosk token (X-Kiosk-Token header).
+router.post('/', requireTerminal, asyncHandler(ClientController.intake));
+router.get('/queue-board', requireTerminal, asyncHandler(ClientController.getQueueBoard));
 
 // Public — no auth. Client-facing post-completion feedback, looked up by reference_no.
 router.get('/feedback/:referenceNo', asyncHandler(ClientController.getFeedbackStatus));
 router.post('/feedback/:referenceNo', asyncHandler(ClientController.submitFeedback));
-
-// Public — no auth. Lobby-TV queue board (PII-free), refreshed by the display itself.
-router.get('/queue-board', asyncHandler(ClientController.getQueueBoard));
 
 router.get('/queue', requireAuth, asyncHandler(ClientController.listQueue));
 router.post(

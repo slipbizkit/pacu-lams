@@ -47,6 +47,33 @@ export class ApiError extends Error {
   }
 }
 
+// Kiosk pages (intake, queue-board) send X-Terminal-Token instead of a staff Bearer token.
+// On 401 the token is cleared and a terminal:session-expired event fires so KioskRoute
+// can redirect to /kiosk-login without triggering the staff session-expired modal.
+async function terminalFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem('terminal_token');
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'X-Terminal-Token': token } : {}),
+      ...options?.headers,
+    },
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('terminal_token');
+    window.dispatchEvent(new Event('terminal:session-expired'));
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Request failed' }));
+    throw new ApiError(err.message || 'Request failed', res.status);
+  }
+
+  return res.json() as Promise<T>;
+}
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('token');
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -149,12 +176,12 @@ export const authService = {
 
 export const clientService = {
   intake: (body: IntakeBody) =>
-    apiFetch<IntakeResult>('/clients', {
+    terminalFetch<IntakeResult>('/clients', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
   listQueue: () => apiFetch<Client[]>('/clients/queue'),
-  queueBoard: () => apiFetch<QueueBoard>('/clients/queue-board'),
+  queueBoard: () => terminalFetch<QueueBoard>('/clients/queue-board'),
   assign: (clientId: number, lawyerId: number) =>
     apiFetch<Client>(`/clients/${clientId}/assign`, {
       method: 'POST',
@@ -246,6 +273,26 @@ export const lookupService = {
     apiFetch<ReferredOffice>('/lookups/referred-offices', { method: 'POST', body: JSON.stringify(body) }),
   updateReferredOffice: (officeId: number, body: UpdateReferredOfficeBody) =>
     apiFetch<ReferredOffice>(`/lookups/referred-offices/${officeId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+};
+
+export const terminalService = {
+  login: async (password: string): Promise<{ token: string }> => {
+    const res = await fetch(`${BASE_URL}/auth/terminal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: 'Request failed' }));
+      throw new ApiError(err.message || 'Request failed', res.status);
+    }
+    return res.json();
+  },
+  setPassword: (password: string) =>
+    apiFetch<{ message: string }>('/auth/terminal-password', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
 };
 
 export const reportService = {

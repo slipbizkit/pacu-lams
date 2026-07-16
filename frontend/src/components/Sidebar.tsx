@@ -30,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin/categories', label: 'Issue Categories', icon: 'bi-tags', roles: ['admin'], group: 'admin' },
   { to: '/admin/offices', label: 'Referral Offices', icon: 'bi-building', roles: ['admin'], group: 'admin' },
   { to: '/admin/reports', label: 'Reports', icon: 'bi-bar-chart-line', roles: ['admin'], group: 'admin' },
+  { to: '/admin/settings', label: 'Settings', icon: 'bi-gear', roles: ['admin'], group: 'admin' },
 ];
 
 const GROUP_ORDER: NavGroup[] = ['home', 'ongoing', 'history', 'admin', 'settings'];

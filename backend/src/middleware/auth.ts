@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken } from '../utils/jwt';
+import { verifyAccessToken, verifyTerminalToken } from '../utils/jwt';
 import { AccessTokenPayload, UserRole } from '../types/user';
 import * as AuthService from '../services/authService';
 
@@ -30,6 +30,17 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
 
   req.user = payload;
   next();
+}
+
+export function requireTerminal(req: Request, res: Response, next: NextFunction) {
+  const token = req.headers['x-terminal-token'] as string | undefined;
+  if (!token) return res.status(401).json({ message: 'Terminal access required' });
+  try {
+    verifyTerminalToken(token);
+    next();
+  } catch {
+    return res.status(401).json({ message: 'Invalid or expired terminal token' });
+  }
 }
 
 export function requireRole(...roles: UserRole[]) {

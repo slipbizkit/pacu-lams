@@ -37,6 +37,12 @@ export interface TempTokenPayload {
   exp: number;
 }
 
+export interface TerminalTokenPayload {
+  type: 'terminal';
+  iat: number;
+  exp: number;
+}
+
 export interface CreateUserBody {
   email: string;
   first_name: string;

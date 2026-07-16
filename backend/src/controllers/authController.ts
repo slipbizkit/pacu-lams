@@ -5,7 +5,8 @@ import QRCode from 'qrcode';
 import { Request } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import * as AuthService from '../services/authService';
-import { signAccessToken, signTempToken, verifyTempToken } from '../utils/jwt';
+import { signAccessToken, signTerminalToken, signTempToken, verifyTempToken } from '../utils/jwt';
+import * as SettingsService from '../services/settingsService';
 import { PublicUser } from '../types/user';
 
 function toPublicUser(user: Awaited<ReturnType<typeof AuthService.findByEmail>>): PublicUser {
@@ -235,4 +236,27 @@ export async function refresh(req: AuthRequest, res: Response) {
 export async function logout(req: AuthRequest, res: Response) {
   await AuthService.deleteSession(req.user!.id);
   res.json({ message: 'Logged out' });
+}
+
+export async function terminalLogin(req: Request, res: Response) {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ message: 'Password is required' });
+
+  const hash = await SettingsService.getTerminalPasswordHash();
+  if (!hash) return res.status(503).json({ message: 'Terminal access has not been configured yet' });
+
+  const valid = await bcrypt.compare(password, hash);
+  if (!valid) return res.status(401).json({ message: 'Incorrect password' });
+
+  res.json({ token: signTerminalToken() });
+}
+
+export async function setTerminalPassword(req: AuthRequest, res: Response) {
+  const { password } = req.body;
+  if (!password || password.length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters' });
+  }
+  const hash = await bcrypt.hash(password, 12);
+  await SettingsService.setTerminalPasswordHash(hash);
+  res.json({ message: 'Terminal password updated' });
 }
