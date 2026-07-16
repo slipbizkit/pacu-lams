@@ -26,7 +26,6 @@ interface ActionsDropdownProps {
 const MENU_WIDTH = 200;
 
 function ActionsDropdown({ isOpen, onToggle, onClose, user, isSelf, onResetPassword, onResetTotp, onToggleActive }: ActionsDropdownProps) {
-  if (isSelf) return <span className="text-muted" style={{ fontSize: '0.8rem' }}>—</span>;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -64,6 +63,10 @@ function ActionsDropdown({ isOpen, onToggle, onClose, user, isSelf, onResetPassw
       window.removeEventListener('resize', handleDismiss);
     };
   }, [isOpen, onClose]);
+
+  // Rendered after the hooks above so they always run unconditionally (rules of hooks):
+  // a user can't act on their own row, so there's nothing to show but a placeholder.
+  if (isSelf) return <span className="text-muted" style={{ fontSize: '0.8rem' }}>—</span>;
 
   return (
     <>
