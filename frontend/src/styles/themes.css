@@ -347,6 +347,42 @@ input:focus-visible,
   box-shadow: var(--pacu-shadow-sm);
 }
 
+/* Language toggle (intake kiosk) — same pill shell as the theme switch, but the
+   segments hold short text labels instead of icons. */
+.pacu-lang-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background-color: var(--pacu-bg);
+  border: 1px solid var(--pacu-border);
+  border-radius: var(--pacu-radius);
+}
+
+.pacu-lang-switch button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 0.7rem;
+  border: none;
+  border-radius: calc(var(--pacu-radius) - 3px);
+  background: transparent;
+  color: var(--pacu-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.pacu-lang-switch button:hover {
+  color: var(--pacu-text);
+}
+
+.pacu-lang-switch button.active {
+  background-color: var(--pacu-surface);
+  color: var(--pacu-accent);
+  box-shadow: var(--pacu-shadow-sm);
+}
+
 /* DataTable pagination — themed to match .btn-outline-secondary elsewhere */
 .page-link {
   background-color: var(--pacu-surface);

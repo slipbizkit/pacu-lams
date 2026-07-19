@@ -7,6 +7,8 @@ import { PENDING_COMPLAINT_TYPES } from '../types/client';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { MultiSelectChips } from '../components/MultiSelectChips';
+import { IntakeLangProvider, LanguageSwitch, useIntakeLang, STRINGS } from './intakeI18n';
+import type { IntakeLang, IntakeStrings } from './intakeI18n';
 
 const EMPTY_FORM: IntakeBody = {
   first_name: '',
@@ -15,6 +17,7 @@ const EMPTY_FORM: IntakeBody = {
   suffix: '',
   sex: undefined,
   contact_no: '',
+  telephone_no: '',
   email: '',
   city_id: undefined,
   occupation: '',
@@ -29,8 +32,7 @@ const EMPTY_FORM: IntakeBody = {
   is_anonymous: false,
 };
 
-const STEP_TITLES = ['Client Information', 'Employment & Status', 'Company Details', 'Review'];
-const TOTAL_STEPS = STEP_TITLES.length;
+const TOTAL_STEPS = 4;
 
 type FieldErrors = Partial<Record<keyof IntakeBody, string>>;
 
@@ -42,41 +44,44 @@ function formatContactNo(digits: string): string {
   return digits.slice(0, 4) + '-' + digits.slice(4, 7) + '-' + digits.slice(7);
 }
 
-function validateStep(step: number, form: IntakeBody): FieldErrors {
+function validateStep(step: number, form: IntakeBody, t: IntakeStrings): FieldErrors {
   const errors: FieldErrors = {};
   const isAnon = form.is_anonymous;
 
   if (step === 0) {
     const rawContact = form.contact_no?.replace(/-/g, '') ?? '';
     if (!isAnon) {
-      if (!form.first_name?.trim()) errors.first_name = 'First name is required';
-      if (!form.last_name?.trim()) errors.last_name = 'Last name is required';
-      if (!form.sex) errors.sex = 'Sex is required';
-      if (rawContact.length < 11) errors.contact_no = 'Contact number is required';
-      if (!form.city_id) errors.city_id = 'City/Municipality is required';
-    } else if (rawContact.length > 0 && rawContact.length < 11) {
-      errors.contact_no = 'Enter a valid contact number';
+      if (!form.first_name?.trim()) errors.first_name = t.reqFirstName;
+      if (!form.last_name?.trim()) errors.last_name = t.reqLastName;
+      if (!form.sex) errors.sex = t.reqSex;
+      if (!form.city_id) errors.city_id = t.reqCity;
+    }
+    if (rawContact.length > 0 && rawContact.length < 11) {
+      errors.contact_no = t.invalidMobile;
     }
     if (form.email?.trim() && !EMAIL_PATTERN.test(form.email.trim())) {
-      errors.email = 'Enter a valid email address';
+      errors.email = t.invalidEmail;
     }
   }
 
   if (step === 1 && !isAnon) {
-    if (!form.occupation?.trim()) errors.occupation = 'Work position is required';
-    if (!form.date_of_employment) errors.date_of_employment = 'Date of employment is required';
-    if (form.union_member === undefined) errors.union_member = 'Please indicate union membership';
+    if (!form.occupation?.trim()) errors.occupation = t.reqWorkPosition;
+    if (!form.date_of_employment) errors.date_of_employment = t.reqDateEmployment;
+    if (form.union_member === undefined) errors.union_member = t.reqUnion;
   }
 
   if (step === 2) {
-    if (!form.employer?.trim()) errors.employer = 'Company name is required';
-    if (!form.company_city_id) errors.company_city_id = 'Company address is required';
+    if (!form.employer?.trim()) errors.employer = t.reqCompany;
+    if (!form.company_city_id) errors.company_city_id = t.reqCompanyAddress;
   }
 
   return errors;
 }
 
 export default function IntakePage() {
+  const [lang, setLang] = useState<IntakeLang>('en');
+  const t = STRINGS[lang];
+
   const [consentGiven, setConsentGiven] = useState(false);
   const [anonymousChosen, setAnonymousChosen] = useState(false);
   const [form, setForm] = useState<IntakeBody>(EMPTY_FORM);
@@ -95,10 +100,13 @@ export default function IntakePage() {
       .catch((err) => {
         Swal.fire({
           icon: 'error',
-          title: 'Could not load cities',
-          text: err instanceof Error ? err.message : 'Please try again',
+          title: t.citiesErrTitle,
+          text: err instanceof Error ? err.message : t.tryAgain,
         });
       });
+    // Cities are static reference data; load once on mount. `t` is intentionally
+    // omitted so switching language does not re-fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -119,7 +127,7 @@ export default function IntakePage() {
   }
 
   async function goNext() {
-    const stepErrors = validateStep(step, form);
+    const stepErrors = validateStep(step, form, t);
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
       setShake(true);
@@ -128,18 +136,18 @@ export default function IntakePage() {
     }
     setErrors({});
 
-    if (form.is_anonymous && step === 0) {
+    if (step === 0) {
       const rawContact = form.contact_no?.replace(/-/g, '') ?? '';
       const missingContact = rawContact.length < 11;
       const missingEmail = !form.email?.trim();
       if (missingContact || missingEmail) {
         const warn = await Swal.fire({
           icon: 'info',
-          title: 'Contact details left blank',
-          text: 'Leaving your contact number or email blank may limit our ability to follow up with you regarding the status of your concern.',
+          title: t.contactBlankTitle,
+          text: t.contactBlankText,
           showCancelButton: true,
-          confirmButtonText: 'Proceed',
-          cancelButtonText: 'Go back to fill it up',
+          confirmButtonText: t.proceed,
+          cancelButtonText: t.goBackFill,
           confirmButtonColor: 'var(--pacu-accent)',
         });
         if (!warn.isConfirmed) return;
@@ -161,11 +169,11 @@ export default function IntakePage() {
 
     const confirm = await Swal.fire({
       icon: 'warning',
-      title: 'Confirm Submission',
-      text: 'Please review the information carefully. Are you sure all the details you have provided are complete and correct?',
+      title: t.confirmTitle,
+      text: t.confirmText,
       showCancelButton: true,
-      confirmButtonText: 'Yes, Submit',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: t.confirmYes,
+      cancelButtonText: t.cancel,
       confirmButtonColor: 'var(--pacu-accent)',
     });
     if (!confirm.isConfirmed) return;
@@ -182,8 +190,8 @@ export default function IntakePage() {
     } catch (err) {
       Swal.fire({
         icon: 'error',
-        title: 'Could not submit',
-        text: err instanceof Error ? err.message : 'Please try again',
+        title: t.submitErrTitle,
+        text: err instanceof Error ? err.message : t.tryAgain,
       });
       setDirection('back');
       setStep(0);
@@ -195,10 +203,10 @@ export default function IntakePage() {
   async function startNewEntry() {
     const { isConfirmed } = await Swal.fire({
       icon: 'question',
-      title: 'Ready for the next client?',
-      html: 'Please make sure the client has taken note of their <strong>queue number</strong> and <strong>reference number</strong> before proceeding.',
-      confirmButtonText: 'Yes, start new entry',
-      cancelButtonText: 'Go back',
+      title: t.nextClientTitle,
+      html: t.nextClientHtml,
+      confirmButtonText: t.nextClientYes,
+      cancelButtonText: t.goBack,
       showCancelButton: true,
     });
     if (!isConfirmed) return;
@@ -211,137 +219,154 @@ export default function IntakePage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      {!consentGiven && <PrivacyNoticeModal onAgree={() => setConsentGiven(true)} />}
-      {consentGiven && !anonymousChosen && (
-        <AnonModal
-          onChoose={(isAnon) => {
-            update('is_anonymous', isAnon);
-            setAnonymousChosen(true);
-          }}
-        />
-      )}
+    <IntakeLangProvider lang={lang} setLang={setLang}>
+      <div style={{ minHeight: '100vh' }}>
+        {!consentGiven && <PrivacyNoticeModal onAgree={() => setConsentGiven(true)} />}
+        {consentGiven && !anonymousChosen && (
+          <AnonModal
+            onChoose={(isAnon) => {
+              update('is_anonymous', isAnon);
+              setAnonymousChosen(true);
+            }}
+          />
+        )}
 
-      <header className="pacu-intake-navbar">
-        <div className="pacu-intake-navbar-left">
-          <div className="pacu-intake-wordmark">
-            <span>Client</span>
-            <span>Form</span>
-          </div>
-        </div>
-
-        <div className="pacu-intake-navbar-center">
-          <div className="pacu-dole-banner">
-            <img src="/dole-logo.png" alt="DOLE" className="pacu-dole-banner-logo" />
-            <div className="pacu-dole-banner-text">
-              <div className="pacu-dole-banner-republic">
-                <span>Republic of the Philippines</span>
-                <span className="pacu-dole-banner-rule" />
-              </div>
-              <div className="pacu-dole-banner-dept">Department of Labor and Employment</div>
+        <header className="pacu-intake-navbar">
+          <div className="pacu-intake-navbar-left">
+            <div className="pacu-intake-wordmark">
+              <span>Client</span>
+              <span>Form</span>
             </div>
-            <img src="/Bagong Pilipinas Logo.png" alt="Bagong Pilipinas" className="pacu-dole-banner-logo" />
           </div>
-        </div>
 
-        <div className="pacu-intake-navbar-right">
-          <ThemeSwitcher />
-        </div>
-      </header>
-
-      <div className="d-flex justify-content-center px-3 pb-5 pacu-intake-content">
-        <div className="pacu-intake-shell">
-          {result ? (
-            <div className="card pacu-auth-success">
-              <div className="card-body p-5 text-center">
-                <p className="pacu-eyebrow mb-2">You're in the queue</p>
-                <div className="pacu-display pacu-mono" style={{ fontSize: '4.5rem', lineHeight: 1, color: 'var(--pacu-accent)' }}>
-                  {result.queue_number}
+          <div className="pacu-intake-navbar-center">
+            <div className="pacu-dole-banner">
+              <img src="/dole-logo.png" alt="DOLE" className="pacu-dole-banner-logo" />
+              <div className="pacu-dole-banner-text">
+                <div className="pacu-dole-banner-republic">
+                  <span>Republic of the Philippines</span>
+                  <span className="pacu-dole-banner-rule" />
                 </div>
-                <p className="text-muted mb-4">Please have a seat. You'll be called by this number.</p>
-                <p className="mb-4">
-                  Reference number: <code className="pacu-mono">{result.reference_no}</code>
-                </p>
-                <button className="btn btn-primary" onClick={startNewEntry} disabled={countdown > 0}>
-                  <i className="bi bi-plus-lg me-2" />
-                  {countdown > 0 ? `Start a New Entry (${countdown})` : 'Start a New Entry'}
-                </button>
+                <div className="pacu-dole-banner-dept">Department of Labor and Employment</div>
+              </div>
+              <img src="/Bagong Pilipinas Logo.png" alt="Bagong Pilipinas" className="pacu-dole-banner-logo" />
+            </div>
+          </div>
+
+          <div className="pacu-intake-navbar-right">
+            <div className="pacu-intake-controls">
+              <div className="pacu-control-group">
+                <span className="pacu-control-label">
+                  <i className="bi bi-translate" />
+                  {t.langLabel}
+                </span>
+                <LanguageSwitch />
+              </div>
+              <div className="pacu-control-group">
+                <span className="pacu-control-label">
+                  <i className="bi bi-palette" />
+                  {t.themeLabel}
+                </span>
+                <ThemeSwitcher />
               </div>
             </div>
-          ) : (
-            <div className="card pacu-intake-card">
-              <div className="card-body p-4 p-md-5">
-                <form onSubmit={handleSubmit}>
-                  <h1 className="pacu-display mb-1">Welcome</h1>
-                  <p className="text-muted mb-4">Please tell us about yourself and what brings you in today.</p>
+          </div>
+        </header>
 
-                  <div className="pacu-stepper mb-4">
-                    {STEP_TITLES.map((title, idx) => (
-                      <Fragment key={title}>
-                        <div
-                          className={`pacu-step${idx === step ? ' is-active' : ''}${idx < step ? ' is-done' : ''}`}
-                        >
-                          <div className="pacu-step-circle">
-                            {idx < step ? <i className="bi bi-check-lg" /> : idx + 1}
+        <div className="d-flex justify-content-center px-3 pb-5 pacu-intake-content">
+          <div className="pacu-intake-shell">
+            {result ? (
+              <div className="card pacu-auth-success">
+                <div className="card-body p-5 text-center">
+                  <p className="pacu-eyebrow mb-2">{t.queueEyebrow}</p>
+                  <div className="pacu-display pacu-mono" style={{ fontSize: '4.5rem', lineHeight: 1, color: 'var(--pacu-accent)' }}>
+                    {result.queue_number}
+                  </div>
+                  <p className="text-muted mb-4">{t.queueSeat}</p>
+                  <p className="mb-4">
+                    {t.refNumber} <code className="pacu-mono">{result.reference_no}</code>
+                  </p>
+                  <button className="btn btn-primary" onClick={startNewEntry} disabled={countdown > 0}>
+                    <i className="bi bi-plus-lg me-2" />
+                    {countdown > 0 ? `${t.startNew} (${countdown})` : t.startNew}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="card pacu-intake-card">
+                <div className="card-body p-4 p-md-5">
+                  <form onSubmit={handleSubmit}>
+                    <h1 className="pacu-display mb-1">{t.welcome}</h1>
+                    <p className="text-muted mb-4">{t.welcomeSub}</p>
+
+                    <div className="pacu-stepper mb-4">
+                      {t.steps.map((title, idx) => (
+                        <Fragment key={idx}>
+                          <div
+                            className={`pacu-step${idx === step ? ' is-active' : ''}${idx < step ? ' is-done' : ''}`}
+                          >
+                            <div className="pacu-step-circle">
+                              {idx < step ? <i className="bi bi-check-lg" /> : idx + 1}
+                            </div>
+                            <div className="pacu-step-label">{title}</div>
                           </div>
-                          <div className="pacu-step-label">{title}</div>
-                        </div>
-                        {idx < TOTAL_STEPS - 1 && (
-                          <div className={`pacu-step-connector${idx < step ? ' is-done' : ''}`} />
-                        )}
-                      </Fragment>
-                    ))}
-                  </div>
+                          {idx < TOTAL_STEPS - 1 && (
+                            <div className={`pacu-step-connector${idx < step ? ' is-done' : ''}`} />
+                          )}
+                        </Fragment>
+                      ))}
+                    </div>
 
-                  <div
-                    key={step}
-                    data-dir={direction}
-                    className={`pacu-wizard-step${shake ? ' pacu-wizard-shake' : ''}`}
-                  >
-                    {step === 0 && (
-                      <ClientInfoStep form={form} update={update} errors={errors} cities={cities} />
-                    )}
-
-                    {step === 1 && (
-                      <EmploymentStatusStep form={form} update={update} errors={errors} />
-                    )}
-                    {step === 2 && (
-                      <CompanyDetailsStep form={form} update={update} errors={errors} cities={cities} />
-                    )}
-                    {step === 3 && <ReviewStep form={form} cities={cities} />}
-                  </div>
-
-                  <div className="pacu-wizard-nav">
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary"
-                      onClick={goBack}
-                      disabled={step === 0}
-                      style={{ visibility: step === 0 ? 'hidden' : 'visible' }}
+                    <div
+                      key={step}
+                      data-dir={direction}
+                      className={`pacu-wizard-step${shake ? ' pacu-wizard-shake' : ''}`}
                     >
-                      <i className="bi bi-arrow-left me-2" />
-                      Previous
-                    </button>
+                      {step === 0 && (
+                        <ClientInfoStep form={form} update={update} errors={errors} cities={cities} />
+                      )}
 
-                    {step < TOTAL_STEPS - 1 ? (
-                      <button key="next" type="button" className="btn btn-primary" onClick={goNext}>
-                        Next
-                        <i className="bi bi-arrow-right ms-2" />
+                      {step === 1 && (
+                        <EmploymentStatusStep form={form} update={update} errors={errors} />
+                      )}
+                      {step === 2 && (
+                        <CompanyDetailsStep form={form} update={update} errors={errors} cities={cities} />
+                      )}
+                      {step === 3 && <ReviewStep form={form} cities={cities} />}
+                    </div>
+
+                    <div className="pacu-wizard-nav">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={goBack}
+                        disabled={step === 0}
+                        style={{ visibility: step === 0 ? 'hidden' : 'visible' }}
+                      >
+                        <i className="bi bi-arrow-left me-2" />
+                        {t.prev}
                       </button>
-                    ) : (
-                      <button key="submit" className="btn btn-primary" type="submit" disabled={submitting}>
-                        {submitting ? <span className="spinner-border spinner-border-sm me-2" /> : null}
-                        Submit Intake
-                      </button>
-                    )}
-                  </div>
-                </form>
+
+                      {step < TOTAL_STEPS - 1 ? (
+                        <button key="next" type="button" className="btn btn-primary" onClick={goNext}>
+                          {t.next}
+                          <i className="bi bi-arrow-right ms-2" />
+                        </button>
+                      ) : (
+                        <button key="submit" className="btn btn-primary" type="submit" disabled={submitting}>
+                          {submitting ? <span className="spinner-border spinner-border-sm me-2" /> : null}
+                          {t.submit}
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </IntakeLangProvider>
   );
 }
 
@@ -615,6 +640,7 @@ function toCityOptions(cities: CityMunicipality[]) {
 }
 
 function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: CityMunicipality[] }) {
+  const { t } = useIntakeLang();
   const req = !form.is_anonymous;
 
   function handleContactChange(value: string) {
@@ -634,10 +660,10 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
 
   return (
     <>
-      <p className="pacu-eyebrow mb-3">Name of Client / Pangalan ng Kliyente</p>
+      <p className="pacu-eyebrow mb-3">{t.nameSection}</p>
       <div className="row g-3 mb-2">
         <div className="col-sm-6 col-lg-4">
-          <label className="form-label">First name{req && <span style={{ color: 'red' }}> *</span>}</label>
+          <label className="form-label">{t.firstName}{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.first_name ? ' is-error' : ''}`}>
             <input
               className="form-control"
@@ -651,11 +677,11 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
           </div>
         </div>
         <div className="col-sm-6 col-lg-4">
-          <label className="form-label">Middle name</label>
+          <label className="form-label">{t.middleName}</label>
           <input className="form-control" value={form.middle_name} onChange={(e) => update('middle_name', e.target.value)} />
         </div>
         <div className="col-sm-6 col-lg-4">
-          <label className="form-label">Last name{req && <span style={{ color: 'red' }}> *</span>}</label>
+          <label className="form-label">{t.lastName}{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.last_name ? ' is-error' : ''}`}>
             <input className="form-control" value={form.last_name} onChange={(e) => update('last_name', e.target.value)} />
             {errors.last_name && (
@@ -667,24 +693,28 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
 
       <div className="row g-3 mb-4">
         <div className="col-sm-6 col-lg-3">
-          <label className="form-label">Suffix</label>
-          <input className="form-control" placeholder="Jr., Sr., III" value={form.suffix} onChange={(e) => update('suffix', e.target.value)} />
+          <label className="form-label">{t.suffix}</label>
+          <input className="form-control" placeholder={t.suffixPlaceholder} value={form.suffix} onChange={(e) => update('suffix', e.target.value)} />
         </div>
         <div className="col-sm-6 col-lg-3">
-          <label className="form-label">Sex{req && <span style={{ color: 'red' }}> *</span>}</label>
+          <label className="form-label">{t.sex}{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.sex ? ' is-error' : ''}`}>
             <select className="form-select" value={form.sex ?? ''} onChange={(e) => update('sex', (e.target.value || undefined) as ClientSex | undefined)}>
-              <option value="">Select</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
+              <option value="">{t.select}</option>
+              <option value="male">{t.male}</option>
+              <option value="female">{t.female}</option>
             </select>
             {errors.sex && (
               <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.sex}</div>
             )}
           </div>
         </div>
-        <div className="col-sm-6 col-lg-3">
-          <label className="form-label">Contact number{req && <span style={{ color: 'red' }}> *</span>}</label>
+      </div>
+
+      <p className="pacu-eyebrow mb-3">{t.contactSection}</p>
+      <div className="row g-3 mb-4">
+        <div className="col-sm-6 col-lg-4">
+          <label className="form-label">{t.mobile}</label>
           <div className={`pacu-wizard-field${errors.contact_no ? ' is-error' : ''}`}>
             <input
               className="form-control"
@@ -699,8 +729,17 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
             )}
           </div>
         </div>
-        <div className="col-sm-6 col-lg-3">
-          <label className="form-label">Email</label>
+        <div className="col-sm-6 col-lg-4">
+          <label className="form-label">{t.telephone}</label>
+          <input
+            className="form-control"
+            value={form.telephone_no}
+            onChange={(e) => update('telephone_no', e.target.value)}
+            placeholder={t.telephonePlaceholder}
+          />
+        </div>
+        <div className="col-sm-6 col-lg-4">
+          <label className="form-label">{t.email}</label>
           <div className={`pacu-wizard-field${errors.email ? ' is-error' : ''}`}>
             <input type="email" className="form-control" value={form.email} onChange={(e) => update('email', e.target.value)} />
             {errors.email && (
@@ -710,15 +749,15 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
         </div>
       </div>
 
-      <p className="pacu-eyebrow mb-3">Address / Tirahan</p>
+      <p className="pacu-eyebrow mb-3">{t.addressSection}</p>
       <div className="mb-2">
-        <label className="form-label">City/Municipality{req && <span style={{ color: 'red' }}> *</span>}</label>
+        <label className="form-label">{t.city}{req && <span style={{ color: 'red' }}> *</span>}</label>
         <div className={`pacu-wizard-field${errors.city_id ? ' is-error' : ''}`}>
           <SearchableSelect
             options={toCityOptions(cities)}
             value={form.city_id ?? null}
             onChange={(id) => update('city_id', id ?? undefined)}
-            placeholder="Search for a city or municipality…"
+            placeholder={t.citySearchPlaceholder}
           />
           {errors.city_id && (
             <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.city_id}</div>
@@ -734,14 +773,15 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
 // ---------------------------------------------------------------------------
 
 function EmploymentStatusStep({ form, update, errors }: StepProps) {
+  const { t } = useIntakeLang();
   const req = !form.is_anonymous;
 
   return (
     <>
-      <p className="pacu-eyebrow mb-3">Employment</p>
+      <p className="pacu-eyebrow mb-3">{t.employmentSection}</p>
       <div className="row g-3 mb-4">
         <div className="col-sm-6">
-          <label className="form-label">Work Position / Posisyon sa Trabaho{req && <span style={{ color: 'red' }}> *</span>}</label>
+          <label className="form-label">{t.workPosition}{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.occupation ? ' is-error' : ''}`}>
             <input className="form-control" value={form.occupation} onChange={(e) => update('occupation', e.target.value)} />
             {errors.occupation && (
@@ -750,7 +790,7 @@ function EmploymentStatusStep({ form, update, errors }: StepProps) {
           </div>
         </div>
         <div className="col-sm-6">
-          <label className="form-label">Date of Employment / Kailan Nakapasok sa Trabaho{req && <span style={{ color: 'red' }}> *</span>}</label>
+          <label className="form-label">{t.dateEmployment}{req && <span style={{ color: 'red' }}> *</span>}</label>
           <div className={`pacu-wizard-field${errors.date_of_employment ? ' is-error' : ''}`}>
             <input
               type="date"
@@ -767,7 +807,7 @@ function EmploymentStatusStep({ form, update, errors }: StepProps) {
       </div>
 
       <div className="mb-4">
-        <label className="form-label d-block">Union Membership / Miyembro ng Unyon ng Manggagawa{req && <span style={{ color: 'red' }}> *</span>}</label>
+        <label className="form-label d-block">{t.union}{req && <span style={{ color: 'red' }}> *</span>}</label>
         <div className="d-flex gap-4">
           <div className="form-check">
             <input
@@ -778,7 +818,7 @@ function EmploymentStatusStep({ form, update, errors }: StepProps) {
               checked={form.union_member === true}
               onChange={() => update('union_member', true)}
             />
-            <label className="form-check-label" htmlFor="union_member_yes">Yes</label>
+            <label className="form-check-label" htmlFor="union_member_yes">{t.yes}</label>
           </div>
           <div className="form-check">
             <input
@@ -789,7 +829,7 @@ function EmploymentStatusStep({ form, update, errors }: StepProps) {
               checked={form.union_member === false}
               onChange={() => update('union_member', false)}
             />
-            <label className="form-check-label" htmlFor="union_member_no">No</label>
+            <label className="form-check-label" htmlFor="union_member_no">{t.no}</label>
           </div>
         </div>
         {errors.union_member && (
@@ -799,19 +839,19 @@ function EmploymentStatusStep({ form, update, errors }: StepProps) {
 
       <div className="card">
         <div className="card-body p-3">
-          <p className="pacu-eyebrow mb-3">Does any of this apply to you?</p>
+          <p className="pacu-eyebrow mb-3">{t.statusPrompt}</p>
           <div className="d-flex flex-wrap gap-4">
             <div className="form-check">
               <input className="form-check-input" type="checkbox" id="is_senior" checked={form.is_senior} onChange={(e) => update('is_senior', e.target.checked)} />
-              <label className="form-check-label" htmlFor="is_senior">Senior citizen</label>
+              <label className="form-check-label" htmlFor="is_senior">{t.senior}</label>
             </div>
             <div className="form-check">
               <input className="form-check-input" type="checkbox" id="is_pwd" checked={form.is_pwd} onChange={(e) => update('is_pwd', e.target.checked)} />
-              <label className="form-check-label" htmlFor="is_pwd">Person with disability</label>
+              <label className="form-check-label" htmlFor="is_pwd">{t.pwd}</label>
             </div>
             <div className="form-check">
               <input className="form-check-input" type="checkbox" id="is_pregnant" checked={form.is_pregnant} onChange={(e) => update('is_pregnant', e.target.checked)} />
-              <label className="form-check-label" htmlFor="is_pregnant">Pregnant</label>
+              <label className="form-check-label" htmlFor="is_pregnant">{t.pregnant}</label>
             </div>
           </div>
         </div>
@@ -825,12 +865,14 @@ function EmploymentStatusStep({ form, update, errors }: StepProps) {
 // ---------------------------------------------------------------------------
 
 function CompanyDetailsStep({ form, update, errors, cities }: StepProps & { cities: CityMunicipality[] }) {
+  const { t } = useIntakeLang();
+
   return (
     <>
-      <p className="pacu-eyebrow mb-3">Company Details</p>
+      <p className="pacu-eyebrow mb-3">{t.companySection}</p>
       <div className="row g-3 mb-4">
         <div className="col-lg-6">
-          <label className="form-label">Name of Company / Pangalan ng Kumpanya <span style={{ color: 'red' }}>*</span></label>
+          <label className="form-label">{t.companyName} <span style={{ color: 'red' }}>*</span></label>
           <div className={`pacu-wizard-field${errors.employer ? ' is-error' : ''}`}>
             <input className="form-control" value={form.employer} onChange={(e) => update('employer', e.target.value)} />
             {errors.employer && (
@@ -840,13 +882,13 @@ function CompanyDetailsStep({ form, update, errors, cities }: StepProps & { citi
         </div>
 
         <div className="col-lg-6">
-          <label className="form-label">Address of Company (City/Municipality) <span style={{ color: 'red' }}>*</span></label>
+          <label className="form-label">{t.companyAddress} <span style={{ color: 'red' }}>*</span></label>
           <div className={`pacu-wizard-field${errors.company_city_id ? ' is-error' : ''}`}>
             <SearchableSelect
               options={toCityOptions(cities)}
               value={form.company_city_id ?? null}
               onChange={(id) => update('company_city_id', id ?? undefined)}
-              placeholder="Search for a city or municipality…"
+              placeholder={t.citySearchPlaceholder}
             />
             {errors.company_city_id && (
               <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.company_city_id}</div>
@@ -856,12 +898,12 @@ function CompanyDetailsStep({ form, update, errors, cities }: StepProps & { citi
       </div>
 
       <div className="mb-2">
-        <label className="form-label">Presence of Pending Labor Complaint/Case Against the Company</label>
+        <label className="form-label">{t.pendingComplaint}</label>
         <MultiSelectChips
           options={PENDING_COMPLAINT_TYPES}
           selected={form.pending_complaint_types ?? []}
           onChange={(values) => update('pending_complaint_types', values as PendingComplaintType[])}
-          placeholder="Search complaint types…"
+          placeholder={t.complaintPlaceholder}
         />
       </div>
     </>
@@ -873,33 +915,35 @@ function CompanyDetailsStep({ form, update, errors, cities }: StepProps & { citi
 // ---------------------------------------------------------------------------
 
 function ReviewStep({ form, cities }: { form: IntakeBody; cities: CityMunicipality[] }) {
+  const { t } = useIntakeLang();
   const fullName = [form.first_name, form.middle_name, form.last_name, form.suffix].filter(Boolean).join(' ');
   const cityName = cities.find((c) => c.id === form.city_id)?.city_municipality;
   const companyCityName = cities.find((c) => c.id === form.company_city_id)?.city_municipality;
 
   return (
     <>
-      <p className="text-muted mb-4">Please review your information before submitting.</p>
+      <p className="text-muted mb-4">{t.reviewIntro}</p>
 
       <div className="pacu-wizard-review-section mb-4">
-        <p className="pacu-eyebrow mb-2">Client Information</p>
+        <p className="pacu-eyebrow mb-2">{t.steps[0]}</p>
         <div className="card">
           <div className="card-body p-3">
-            <div className="pacu-wizard-review-row"><span className="text-muted">Name</span><span className="fw-medium">{fullName || '—'}</span></div>
-            <div className="pacu-wizard-review-row"><span className="text-muted">Sex</span><span className="fw-medium text-capitalize">{form.sex ?? '—'}</span></div>
-            <div className="pacu-wizard-review-row"><span className="text-muted">Contact number</span><span className="fw-medium">{form.contact_no && form.contact_no !== '09' ? form.contact_no : '—'}</span></div>
-            <div className="pacu-wizard-review-row"><span className="text-muted">Email</span><span className="fw-medium">{form.email || '—'}</span></div>
-            <div className="pacu-wizard-review-row"><span className="text-muted">Address</span><span className="fw-medium">{cityName || '—'}</span></div>
-            <div className="pacu-wizard-review-row"><span className="text-muted">Work Position</span><span className="fw-medium">{form.occupation || '—'}</span></div>
-            <div className="pacu-wizard-review-row"><span className="text-muted">Date of Employment</span><span className="fw-medium">{form.date_of_employment || '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.reviewName}</span><span className="fw-medium">{fullName || '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.sex}</span><span className="fw-medium text-capitalize">{form.sex ?? '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.mobile}</span><span className="fw-medium">{form.contact_no && form.contact_no !== '09' ? form.contact_no : '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.telephone}</span><span className="fw-medium">{form.telephone_no || '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.email}</span><span className="fw-medium">{form.email || '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.reviewAddress}</span><span className="fw-medium">{cityName || '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.workPosition}</span><span className="fw-medium">{form.occupation || '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.dateEmployment}</span><span className="fw-medium">{form.date_of_employment || '—'}</span></div>
             <div className="pacu-wizard-review-row">
-              <span className="text-muted">Union Membership</span>
-              <span className="fw-medium">{form.union_member === undefined ? '—' : form.union_member ? 'Yes' : 'No'}</span>
+              <span className="text-muted">{t.union}</span>
+              <span className="fw-medium">{form.union_member === undefined ? '—' : form.union_member ? t.yes : t.no}</span>
             </div>
             <div className="pacu-wizard-review-row">
-              <span className="text-muted">Special status</span>
+              <span className="text-muted">{t.specialStatus}</span>
               <span className="fw-medium">
-                {[form.is_senior && 'Senior citizen', form.is_pwd && 'PWD', form.is_pregnant && 'Pregnant'].filter(Boolean).join(', ') || '—'}
+                {[form.is_senior && t.senior, form.is_pwd && t.pwdShort, form.is_pregnant && t.pregnant].filter(Boolean).join(', ') || '—'}
               </span>
             </div>
           </div>
@@ -907,17 +951,17 @@ function ReviewStep({ form, cities }: { form: IntakeBody; cities: CityMunicipali
       </div>
 
       <div className="pacu-wizard-review-section">
-        <p className="pacu-eyebrow mb-2">Company Details</p>
+        <p className="pacu-eyebrow mb-2">{t.companySection}</p>
         <div className="card">
           <div className="card-body p-3">
-            <div className="pacu-wizard-review-row"><span className="text-muted">Company Name</span><span className="fw-medium">{form.employer || '—'}</span></div>
-            <div className="pacu-wizard-review-row"><span className="text-muted">Company Address</span><span className="fw-medium">{companyCityName || '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.companyNameLabel}</span><span className="fw-medium">{form.employer || '—'}</span></div>
+            <div className="pacu-wizard-review-row"><span className="text-muted">{t.companyAddressLabel}</span><span className="fw-medium">{companyCityName || '—'}</span></div>
             <div className="pacu-wizard-review-row">
-              <span className="text-muted">Pending Labor Complaint/Case</span>
+              <span className="text-muted">{t.pendingLabel}</span>
               <span className="d-flex flex-wrap gap-1 justify-content-end">
                 {form.pending_complaint_types && form.pending_complaint_types.length > 0 ? (
-                  form.pending_complaint_types.map((t) => (
-                    <span key={t} className="pacu-badge">{t}</span>
+                  form.pending_complaint_types.map((tag) => (
+                    <span key={tag} className="pacu-badge">{tag}</span>
                   ))
                 ) : (
                   <span className="fw-medium">—</span>

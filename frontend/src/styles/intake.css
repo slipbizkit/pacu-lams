@@ -37,6 +37,50 @@
   justify-content: flex-end;
 }
 
+/* Language + theme controls, each with a small caption above the switch. */
+.pacu-intake-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+
+.pacu-control-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.pacu-control-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pacu-text-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (max-width: 991.98px) {
+  .pacu-intake-controls {
+    gap: 0.75rem;
+  }
+  .pacu-control-label {
+    font-size: 0.62rem;
+  }
+}
+
+/* On the tightest screens the captions crowd the banner — hide them and let the
+   switch controls (which carry their own aria-labels) stand alone. */
+@media (max-width: 575.98px) {
+  .pacu-control-label {
+    display: none;
+  }
+}
+
 .pacu-intake-navbar-center {
   display: flex;
   align-items: center;
@@ -166,7 +210,9 @@ html[data-theme='dark'] .pacu-intake-navbar {
 .pacu-stepper {
   display: flex;
   align-items: flex-start;
-  padding-bottom: 1.75rem;
+  /* Reserves vertical room for step labels that wrap to two lines (e.g. longer
+     Tagalog labels) so they never collide with the step content below. */
+  padding-bottom: 2.9rem;
 }
 
 .pacu-step {
@@ -212,9 +258,15 @@ html[data-theme='dark'] .pacu-intake-navbar {
   transform: translateX(-50%);
   font-size: 0.78rem;
   font-weight: 600;
+  line-height: 1.25;
   color: var(--pacu-text-muted);
   text-align: center;
-  white-space: nowrap;
+  /* Cap the width so long labels wrap to a second line instead of overflowing
+     sideways into the neighbouring step (or past the card edge). 8.5rem keeps
+     every English label on one line while wrapping the longer Tagalog ones. */
+  width: max-content;
+  max-width: 8.25rem;
+  overflow-wrap: break-word;
   transition: color 0.25s ease;
 }
 
@@ -239,7 +291,9 @@ html[data-theme='dark'] .pacu-intake-navbar {
   background-color: var(--pacu-accent);
 }
 
-@media (max-width: 575.98px) {
+/* Below ~768px there isn't room for four step captions without crowding, so show
+   only the active step's label (matches the compact-stepper pattern). */
+@media (max-width: 767.98px) {
   .pacu-step-label {
     display: none;
   }

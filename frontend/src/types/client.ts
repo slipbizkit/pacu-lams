@@ -32,6 +32,7 @@ export interface Client {
   sex: ClientSex | null;
 
   contact_no: string | null;
+  telephone_no: string | null;
   email: string | null;
 
   city_id: number | null;
@@ -181,6 +182,7 @@ export interface IntakeBody {
   suffix?: string;
   sex?: ClientSex;
   contact_no?: string;
+  telephone_no?: string;
   email?: string;
   city_id?: number;
   occupation?: string;
