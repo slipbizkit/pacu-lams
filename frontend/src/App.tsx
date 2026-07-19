@@ -8,7 +8,6 @@ import LoginPage from './pages/LoginPage';
 import KioskLoginPage from './pages/KioskLoginPage';
 import DashboardPage from './pages/DashboardPage';
 import IntakePage from './pages/IntakePage';
-import FeedbackPage from './pages/FeedbackPage';
 import QueuePage from './pages/QueuePage';
 import QueueBoardPage from './pages/QueueBoardPage';
 import MyClientsPage from './pages/MyClientsPage';
@@ -32,7 +31,6 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/terminal-login" element={<KioskLoginPage />} />
           <Route path="/intake" element={<KioskRoute><IntakePage /></KioskRoute>} />
-          <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="/queue-board" element={<KioskRoute><QueueBoardPage /></KioskRoute>} />
 
           <Route element={<PrivateRoute />}>

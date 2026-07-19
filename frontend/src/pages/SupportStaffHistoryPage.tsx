@@ -1,56 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import { clientService } from '../services/api';
-import type { ClientFeedback, CompletedTransaction } from '../types/client';
-import { EncodeFeedbackModal } from '../components/EncodeFeedbackModal';
+import type { CompletedTransaction } from '../types/client';
 
 function fmtDate(d: string): string {
   return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-// At-a-glance feedback state for a completed transaction. Online = the client
-// submitted it themselves via the emailed link; manual = staff encoded a paper
-// form; null = none yet.
-function FeedbackStatusBadge({ feedback }: { feedback: CompletedTransaction['feedback'] }) {
-  const base: React.CSSProperties = {
-    fontSize: '0.72rem',
-    fontWeight: 600,
-    padding: '0.2rem 0.55rem',
-  };
-  if (!feedback) {
-    return (
-      <span
-        className="badge rounded-pill d-inline-flex align-items-center gap-1"
-        style={{ ...base, backgroundColor: 'transparent', color: 'var(--pacu-text-muted)', border: '1px solid var(--pacu-border)' }}
-        title="No feedback submitted or encoded"
-      >
-        <i className="bi bi-dash-circle" />
-        No Feedback
-      </span>
-    );
-  }
-  if (feedback.submitted_via === 'online') {
-    return (
-      <span
-        className="badge rounded-pill d-inline-flex align-items-center gap-1"
-        style={{ ...base, backgroundColor: 'color-mix(in srgb, var(--pacu-success) 16%, transparent)', color: 'var(--pacu-success)' }}
-        title="Submitted online by the client"
-      >
-        <i className="bi bi-check-circle-fill" />
-        Submitted
-      </span>
-    );
-  }
-  return (
-    <span
-      className="badge rounded-pill d-inline-flex align-items-center gap-1"
-      style={{ ...base, backgroundColor: 'color-mix(in srgb, var(--pacu-accent) 16%, transparent)', color: 'var(--pacu-accent)' }}
-      title="Manually encoded from a paper form by staff"
-    >
-      <i className="bi bi-pencil-fill" />
-      Encoded
-    </span>
-  );
 }
 
 // June 2026 is the earliest available month
@@ -95,17 +49,6 @@ export default function SupportStaffHistoryPage() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [encodingRow, setEncodingRow] = useState<CompletedTransaction | null>(null);
-
-  function handleFeedbackSaved(clientId: number, feedback: ClientFeedback) {
-    setRows((prev) => prev.map((r) => (r.client_id === clientId ? { ...r, feedback } : r)));
-    setEncodingRow(null);
-  }
-
-  function rowName(row: CompletedTransaction): string {
-    if (row.is_anonymous) return 'Anonymous';
-    return `${row.first_name} ${row.last_name}`;
-  }
 
   async function handleSearch() {
     setLoading(true);
@@ -226,8 +169,6 @@ export default function SupportStaffHistoryPage() {
                   <th>Client Name</th>
                   <th>Company</th>
                   <th>Lawyer</th>
-                  <th>Feedback</th>
-                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -253,39 +194,6 @@ export default function SupportStaffHistoryPage() {
                           : <span style={{ opacity: 0.4 }}>—</span>}
                     </td>
                     <td className="text-muted">{row.lawyer_name || <span style={{ opacity: 0.4 }}>—</span>}</td>
-                    <td><FeedbackStatusBadge feedback={row.feedback} /></td>
-                    <td>
-                      <div className="dropdown">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-light"
-                          data-bs-toggle="dropdown"
-                          aria-expanded="false"
-                          style={{ lineHeight: 1 }}
-                        >
-                          <i className="bi bi-three-dots" />
-                        </button>
-                        <ul className="dropdown-menu dropdown-menu-end">
-                          <li>
-                            {row.feedback ? (
-                              <span className="dropdown-item d-flex align-items-center gap-2 text-success" style={{ cursor: 'default' }}>
-                                <i className="bi bi-check-circle" />
-                                Feedback recorded
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="dropdown-item d-flex align-items-center gap-2"
-                                onClick={() => setEncodingRow(row)}
-                              >
-                                <i className="bi bi-pencil-square text-muted" />
-                                Manually Encode Feedback
-                              </button>
-                            )}
-                          </li>
-                        </ul>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -336,16 +244,6 @@ export default function SupportStaffHistoryPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {encodingRow && (
-        <EncodeFeedbackModal
-          clientId={encodingRow.client_id}
-          clientName={rowName(encodingRow)}
-          referenceNo={encodingRow.reference_no}
-          onClose={() => setEncodingRow(null)}
-          onSaved={(feedback) => handleFeedbackSaved(encodingRow.client_id, feedback)}
-        />
       )}
     </div>
   );

@@ -9,10 +9,6 @@ const router = Router();
 router.post('/', requireTerminal, asyncHandler(ClientController.intake));
 router.get('/queue-board', requireTerminal, asyncHandler(ClientController.getQueueBoard));
 
-// Public — no auth. Client-facing post-completion feedback, looked up by reference_no.
-router.get('/feedback/:referenceNo', asyncHandler(ClientController.getFeedbackStatus));
-router.post('/feedback/:referenceNo', asyncHandler(ClientController.submitFeedback));
-
 router.get('/queue', requireAuth, asyncHandler(ClientController.listQueue));
 router.post(
   '/:id/assign',
@@ -54,14 +50,6 @@ router.post(
   requireAuth,
   requireRole('lawyer'),
   asyncHandler(ClientController.sendEmail)
-);
-
-// Manual encoding of a paper CSM feedback form.
-router.post(
-  '/:id/feedback',
-  requireAuth,
-  requireRole('personnel', 'support_staff', 'admin'),
-  asyncHandler(ClientController.encodeFeedback)
 );
 
 router.get(

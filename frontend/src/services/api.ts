@@ -2,7 +2,6 @@ import type { CreateUserBody, CreateUserResult, LoginResponse, ResetPasswordResu
 import type {
   CityMunicipality,
   Client,
-  ClientFeedback,
   CompletedTransaction,
   ConsultationBody,
   CreateIssueCategoryBody,
@@ -10,7 +9,6 @@ import type {
   CreateReferredOfficeBody,
   Dashboard,
   DashboardCharts,
-  FeedbackStatus,
   HistoryFilters,
   IntakeBody,
   IntakeResult,
@@ -21,7 +19,6 @@ import type {
   QueueBoard,
   ReferredOffice,
   MonthlyReport,
-  SubmitFeedbackBody,
   SupportStaffDashboard,
   UpdateIssueCategoryBody,
   UpdateIssueCategoryGroupBody,
@@ -204,18 +201,6 @@ export const clientService = {
     apiFetch<Client>(`/clients/${clientId}/cancel`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
-    }),
-  feedbackStatus: (referenceNo: string) =>
-    apiFetch<FeedbackStatus>(`/clients/feedback/${encodeURIComponent(referenceNo)}`),
-  submitFeedback: (referenceNo: string, body: SubmitFeedbackBody) =>
-    apiFetch<{ message: string }>(`/clients/feedback/${encodeURIComponent(referenceNo)}`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-  encodeFeedback: (clientId: number, body: SubmitFeedbackBody) =>
-    apiFetch<{ message: string; feedback: ClientFeedback }>(`/clients/${clientId}/feedback`, {
-      method: 'POST',
-      body: JSON.stringify(body),
     }),
   sendEmail: (clientId: number) =>
     apiFetch<{ message: string; email_sent_at: string }>(`/clients/${clientId}/send-email`, { method: 'POST' }),

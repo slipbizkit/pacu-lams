@@ -2,8 +2,8 @@ import { useTheme } from '../context/ThemeContext';
 import type { Theme } from '../context/ThemeContext';
 
 // Single-button cycling toggle, used on the authenticated navbar plus the login
-// and feedback screens. The full 3-way segmented ThemeSwitcher is kept for the
-// intake kiosk, where the options are laid out explicitly for walk-in clients.
+// screen. The full 3-way segmented ThemeSwitcher is kept for the intake kiosk,
+// where the options are laid out explicitly for walk-in clients.
 const ORDER: Theme[] = ['light', 'soft-light', 'dark'];
 const META: Record<Theme, { label: string; icon: string }> = {
   light: { label: 'Light', icon: 'bi-sun' },

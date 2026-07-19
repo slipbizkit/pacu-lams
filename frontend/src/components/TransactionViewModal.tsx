@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { clientService } from '../services/api';
-import { SQD_KEYS } from '../types/client';
 import type { CompletedTransaction, IssueTag } from '../types/client';
-import { SQD_STATEMENTS } from './FeedbackQuestions';
 
 interface TransactionViewModalProps {
   transaction: CompletedTransaction;
@@ -24,11 +22,6 @@ function fmtDateTime(d: string | null | undefined): string {
     year: 'numeric', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
-}
-
-// Score → semantic token. Mirrors the rating buckets used on the Reports page.
-function ratingColor(v: number): string {
-  return v >= 4 ? 'var(--pacu-success)' : v === 3 ? 'var(--pacu-warning)' : 'var(--pacu-danger)';
 }
 
 // ── Presentational building blocks ───────────────────────────────────────────
@@ -130,14 +123,6 @@ export function TransactionViewModal({ transaction: tx, onClose, loadIssues }: T
     tx.is_pwd && 'Person with Disability',
     tx.is_pregnant && 'Pregnant',
   ].filter(Boolean) as string[];
-
-  // Overall CSM score = mean of the answered (non-N/A) items.
-  const overall = useMemo(() => {
-    if (!tx.feedback) return null;
-    const vals = SQD_KEYS.map((k) => tx.feedback![k]).filter((v): v is number => v != null);
-    if (vals.length === 0) return null;
-    return { average: vals.reduce((a, b) => a + b, 0) / vals.length, answered: vals.length };
-  }, [tx.feedback]);
 
   const metaItems = [
     { label: 'Intake Date', value: fmtDate(tx.transaction_date) },
@@ -310,82 +295,6 @@ export function TransactionViewModal({ transaction: tx, onClose, loadIssues }: T
                 </div>
               )}
 
-              {/* Client Satisfaction Feedback */}
-              {tx.feedback && (
-                <div className="pacu-vm-section">
-                  <Section
-                    icon="bi-star-fill"
-                    title="Client Satisfaction"
-                    meta={
-                      <span className="pacu-badge" style={{ backgroundColor: 'var(--pacu-accent-soft)', color: 'var(--pacu-accent)' }}>
-                        <i className={`bi ${tx.feedback.submitted_via === 'manual' ? 'bi-pencil-fill' : 'bi-check-circle-fill'}`} />
-                        {tx.feedback.submitted_via === 'manual' ? 'Encoded' : 'Submitted online'}
-                      </span>
-                    }
-                  >
-                    <Panel>
-                      {overall && (
-                        <div
-                          className="d-flex align-items-center gap-3 mb-3 pb-3"
-                          style={{ borderBottom: '1px solid var(--pacu-border)' }}
-                        >
-                          <div
-                            className="pacu-display"
-                            style={{ fontSize: '2rem', fontWeight: 700, lineHeight: 1, color: ratingColor(overall.average) }}
-                          >
-                            {overall.average.toFixed(1)}
-                            <span style={{ fontSize: '0.95rem', color: 'var(--pacu-text-muted)', fontWeight: 500 }}> / 5</span>
-                          </div>
-                          <div>
-                            <p className="pacu-eyebrow mb-1" style={{ fontSize: '0.62rem', letterSpacing: '0.1em' }}>Overall Rating</p>
-                            <p className="mb-0" style={{ fontSize: '0.82rem', color: 'var(--pacu-text-secondary)' }}>
-                              Average across {overall.answered} answered item{overall.answered !== 1 ? 's' : ''}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {SQD_KEYS.map((key, i) => {
-                        const value = tx.feedback![key];
-                        return (
-                          <div
-                            key={key}
-                            className="d-flex justify-content-between align-items-center gap-3 py-2"
-                            style={{ fontSize: '0.86rem', borderTop: i > 0 ? '1px solid var(--pacu-border)' : undefined }}
-                          >
-                            <span style={{ color: 'var(--pacu-text-secondary)' }}>{i + 1}. {SQD_STATEMENTS[i]}</span>
-                            {value == null ? (
-                              <span
-                                className="flex-shrink-0"
-                                style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--pacu-text-muted)', padding: '2px 10px', borderRadius: 999, border: '1px solid var(--pacu-border)' }}
-                              >
-                                N/A
-                              </span>
-                            ) : (
-                              <span
-                                className="flex-shrink-0"
-                                style={{
-                                  fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
-                                  color: ratingColor(value),
-                                  backgroundColor: `color-mix(in srgb, ${ratingColor(value)} 14%, transparent)`,
-                                  padding: '2px 10px', borderRadius: 999,
-                                }}
-                              >
-                                {value} / 5
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {tx.feedback.comments && (
-                        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--pacu-border)' }}>
-                          <p className="pacu-eyebrow mb-1" style={{ fontSize: '0.62rem', letterSpacing: '0.1em' }}>Comments</p>
-                          <p className="mb-0" style={{ fontSize: '0.9rem', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{tx.feedback.comments}</p>
-                        </div>
-                      )}
-                    </Panel>
-                  </Section>
-                </div>
-              )}
             </div>
 
             {/* Footer */}

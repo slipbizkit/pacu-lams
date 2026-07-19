@@ -1,6 +1,5 @@
 import sql from '../db';
 import { Client, CompletedTransaction, ConsultationBody, HistoryFilters, IntakeBody, IssueTag } from '../types/client';
-import { ClientFeedback, FeedbackAnswers } from '../types/feedback';
 import { nextQueueSlot, buildReferenceNo } from './queueService';
 import { findReferredOfficeById } from './lookupService';
 import { sendConsultationSummary } from './emailService';
@@ -421,8 +420,7 @@ export async function listAllCompleted(filters: HistoryFilters): Promise<Complet
       cm2.city_municipality AS company_city,
       MAX(ro.office_name) AS referred_office_name,
       STRING_AGG(ic.category_name, ', ' ORDER BY ic.category_name) AS issue_categories,
-      MAX(u.first_name || ' ' || u.last_name) AS lawyer_name,
-      (SELECT to_jsonb(cf) FROM client_feedback cf WHERE cf.client_id = c.client_id) AS feedback
+      MAX(u.first_name || ' ' || u.last_name) AS lawyer_name
     FROM clients c
     LEFT JOIN cities_municipalities cm ON cm.id = c.city_id
     LEFT JOIN cities_municipalities cm2 ON cm2.id = c.company_city_id
@@ -536,74 +534,6 @@ export async function cancelTransaction(
   return { error: 'not_active' };
 }
 
-export async function findByReferenceNo(referenceNo: string): Promise<Client | null> {
-  const rows = await sql`SELECT * FROM clients WHERE reference_no = ${referenceNo}`;
-  return (rows[0] as Client) ?? null;
-}
-
-export type FeedbackFailureReason = 'not_found' | 'not_completed' | 'already_submitted';
-
-export async function hasFeedback(clientId: number): Promise<boolean> {
-  const rows = await sql`SELECT 1 FROM client_feedback WHERE client_id = ${clientId}`;
-  return rows.length > 0;
-}
-
-// Single atomic insert mirrors the assign/claim pattern: it only writes if the
-// transaction is completed, and ON CONFLICT guards against a duplicate response.
-async function insertFeedback(
-  clientId: number,
-  answers: FeedbackAnswers,
-  comments: string | null,
-  via: 'online' | 'manual',
-  encodedBy: number | null
-): Promise<ClientFeedback | null> {
-  const rows = await sql`
-    INSERT INTO client_feedback
-      (client_id, sqd1, sqd2, sqd3, sqd4, sqd5, sqd6, sqd7, sqd8, sqd9, sqd10, comments, submitted_via, encoded_by)
-    SELECT ${clientId},
-           ${answers.sqd1}, ${answers.sqd2}, ${answers.sqd3}, ${answers.sqd4}, ${answers.sqd5},
-           ${answers.sqd6}, ${answers.sqd7}, ${answers.sqd8}, ${answers.sqd9}, ${answers.sqd10},
-           ${comments}, ${via}, ${encodedBy}
-    WHERE EXISTS (SELECT 1 FROM clients WHERE client_id = ${clientId} AND status = 'completed')
-    ON CONFLICT (client_id) DO NOTHING
-    RETURNING *
-  `;
-  return (rows[0] as ClientFeedback) ?? null;
-}
-
-// Client-facing, keyed by reference number (public, no auth).
-export async function submitFeedbackByReferenceNo(
-  referenceNo: string,
-  answers: FeedbackAnswers,
-  comments: string | null
-): Promise<{ feedback: ClientFeedback } | { error: FeedbackFailureReason }> {
-  const client = await findByReferenceNo(referenceNo);
-  if (!client) return { error: 'not_found' };
-
-  const feedback = await insertFeedback(client.client_id, answers, comments, 'online', null);
-  if (feedback) return { feedback };
-
-  if (client.status !== 'completed') return { error: 'not_completed' };
-  return { error: 'already_submitted' };
-}
-
-// Staff-facing, keyed by client id — used to manually encode paper responses.
-export async function submitFeedbackByClientId(
-  clientId: number,
-  answers: FeedbackAnswers,
-  comments: string | null,
-  encodedBy: number
-): Promise<{ feedback: ClientFeedback } | { error: FeedbackFailureReason }> {
-  const rows = await sql`SELECT status FROM clients WHERE client_id = ${clientId}`;
-  if (rows.length === 0) return { error: 'not_found' };
-
-  const feedback = await insertFeedback(clientId, answers, comments, 'manual', encodedBy);
-  if (feedback) return { feedback };
-
-  if ((rows[0] as { status: string }).status !== 'completed') return { error: 'not_completed' };
-  return { error: 'already_submitted' };
-}
-
 export async function listCompletedByLawyer(
   lawyerId: number,
   filters: HistoryFilters
@@ -619,8 +549,7 @@ export async function listCompletedByLawyer(
       cm.province AS province,
       cm2.city_municipality AS company_city,
       MAX(ro.office_name) AS referred_office_name,
-      STRING_AGG(ic.category_name, ', ' ORDER BY ic.category_name) AS issue_categories,
-      (SELECT to_jsonb(cf) FROM client_feedback cf WHERE cf.client_id = c.client_id) AS feedback
+      STRING_AGG(ic.category_name, ', ' ORDER BY ic.category_name) AS issue_categories
     FROM clients c
     LEFT JOIN cities_municipalities cm ON cm.id = c.city_id
     LEFT JOIN cities_municipalities cm2 ON cm2.id = c.company_city_id
