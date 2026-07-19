@@ -110,10 +110,29 @@
   white-space: nowrap;
 }
 
-.pacu-intake-wordmark-clock {
-  font-size: 0.975rem;
+.pacu-intake-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+}
+
+.pacu-intake-clock-date {
+  font-size: 0.7rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--pacu-text-muted);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.pacu-intake-clock-time {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--pacu-accent);
   white-space: nowrap;
   line-height: 1;
 }
@@ -191,8 +210,11 @@ html[data-theme='dark'] .pacu-intake-navbar {
   .pacu-intake-wordmark-name span {
     font-size: 0.58rem;
   }
-  .pacu-intake-wordmark-clock {
-    font-size: 0.87rem;
+  .pacu-intake-clock-date {
+    font-size: 0.6rem;
+  }
+  .pacu-intake-clock-time {
+    font-size: 1.05rem;
   }
   .pacu-intake-content {
     padding-top: calc(72px + 1.25rem);

@@ -86,16 +86,21 @@ function validateStep(step: number, form: IntakeBody, t: IntakeStrings): FieldEr
   return errors;
 }
 
-function formatClock(d: Date): string {
-  const day = d.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  const time = d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true });
-  return `${day} • ${time}`;
+const CLOCK_LOCALE: Record<string, string> = { en: 'en-PH', tl: 'fil-PH' };
+
+function formatClockDate(d: Date, lang: string): string {
+  return d.toLocaleDateString(CLOCK_LOCALE[lang] ?? 'en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function formatClockTime(d: Date): string {
+  return d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 export default function IntakePage() {
   const [lang, setLang] = useState<IntakeLang>('en');
   const t = STRINGS[lang];
-  const [clock, setClock] = useState(() => formatClock(new Date()));
+  const [clockDate, setClockDate] = useState(() => formatClockDate(new Date(), 'en'));
+  const [clockTime, setClockTime] = useState(() => formatClockTime(new Date()));
 
   const [consentGiven, setConsentGiven] = useState(false);
   const [anonymousChosen, setAnonymousChosen] = useState(false);
@@ -110,9 +115,14 @@ export default function IntakePage() {
   const [cities, setCities] = useState<CityMunicipality[]>([]);
 
   useEffect(() => {
-    const id = setInterval(() => setClock(formatClock(new Date())), 1000);
+    setClockDate(formatClockDate(new Date(), lang));
+    const id = setInterval(() => {
+      const now = new Date();
+      setClockDate(formatClockDate(now, lang));
+      setClockTime(formatClockTime(now));
+    }, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     lookupService.citiesMunicipalities()
@@ -276,7 +286,10 @@ export default function IntakePage() {
           </div>
 
           <div className="pacu-intake-navbar-right">
-            <span className="pacu-intake-wordmark-clock">{clock}</span>
+            <div className="pacu-intake-clock">
+              <span className="pacu-intake-clock-date">{clockDate}</span>
+              <span className="pacu-intake-clock-time">{clockTime}</span>
+            </div>
             <div className="pacu-intake-controls">
               <div className="pacu-control-group">
                 <span className="pacu-control-label">
