@@ -288,6 +288,8 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [othersText, setOthersText] = useState('');
+  const [othersError, setOthersError] = useState(false);
+  const othersInputRef = useRef<HTMLInputElement>(null);
   const [legalAdvice, setLegalAdvice] = useState(client.legal_advice ?? '');
   const [referring, setReferring] = useState(!!client.referred_office_id || client.referred_reason !== null);
   const [officeId, setOfficeId] = useState<number | ''>(client.referred_office_id ?? '');
@@ -321,6 +323,10 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
     [selectedIds, categories]
   );
 
+  useEffect(() => {
+    if (!hasOthersSelected) setOthersError(false);
+  }, [hasOthersSelected]);
+
   async function handleDownloadReferral() {
     setDownloadingReferral(true);
     try {
@@ -336,6 +342,12 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
     e.preventDefault();
 
     if (!markIncomplete) {
+      if (hasOthersSelected && othersText.trim() === '') {
+        setOthersError(true);
+        othersInputRef.current?.focus();
+        return;
+      }
+
       const missingCategory = selectedIds.size === 0;
       const missingAdvice = legalAdvice.trim() === '';
       if (missingCategory || missingAdvice) {
@@ -429,8 +441,16 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
 
             {hasOthersSelected && (
               <div className="mb-4">
-                <label className="form-label">Please describe the "Others" issue</label>
-                <input className="form-control" value={othersText} onChange={(e) => setOthersText(e.target.value)} />
+                <label className="form-label">Please describe the "Others" issue <span className="text-danger">*</span></label>
+                <input
+                  ref={othersInputRef}
+                  className={`form-control${othersError ? ' is-invalid' : ''}`}
+                  value={othersText}
+                  onChange={(e) => { setOthersText(e.target.value); if (othersError) setOthersError(false); }}
+                />
+                {othersError && (
+                  <div className="invalid-feedback">Please describe the "Others" issue.</div>
+                )}
               </div>
             )}
 
