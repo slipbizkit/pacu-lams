@@ -43,6 +43,7 @@ export interface Client {
   union_member: boolean | null;
   company_city_id: number | null;
   pending_complaint_types: PendingComplaintType[] | null;
+  pending_complaint_other: string | null;
 
   concern: string | null;
 
@@ -191,6 +192,7 @@ export interface IntakeBody {
   employer?: string;
   company_city_id?: number;
   pending_complaint_types?: PendingComplaintType[];
+  pending_complaint_other?: string;
   is_pwd?: boolean;
   is_senior?: boolean;
   is_pregnant?: boolean;

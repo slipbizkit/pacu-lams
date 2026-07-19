@@ -67,6 +67,7 @@ export interface IntakeStrings {
   companyAddress: string;
   pendingComplaint: string;
   complaintPlaceholder: string;
+  pendingComplaintOtherPlaceholder: string;
 
   // Review
   reviewIntro: string;
@@ -77,6 +78,7 @@ export interface IntakeStrings {
   companyNameLabel: string;
   companyAddressLabel: string;
   pendingLabel: string;
+  pendingOtherLabel: string;
 
   // Validation
   reqFirstName: string;
@@ -90,6 +92,7 @@ export interface IntakeStrings {
   reqUnion: string;
   reqCompany: string;
   reqCompanyAddress: string;
+  reqPendingComplaintOther: string;
 
   // Dialogs
   citiesErrTitle: string;
@@ -183,6 +186,7 @@ export const STRINGS: Record<IntakeLang, IntakeStrings> = {
     companyAddress: 'Address of Company (City/Municipality)',
     pendingComplaint: 'Presence of Pending Labor Complaint/Case Against the Company',
     complaintPlaceholder: 'Search complaint types…',
+    pendingComplaintOtherPlaceholder: 'Please specify…',
 
     reviewIntro: 'Please review your information before submitting.',
     reviewName: 'Name',
@@ -192,6 +196,7 @@ export const STRINGS: Record<IntakeLang, IntakeStrings> = {
     companyNameLabel: 'Company Name',
     companyAddressLabel: 'Company Address',
     pendingLabel: 'Pending Labor Complaint/Case',
+    pendingOtherLabel: 'Other (specify)',
 
     reqFirstName: 'First name is required',
     reqLastName: 'Last name is required',
@@ -204,6 +209,7 @@ export const STRINGS: Record<IntakeLang, IntakeStrings> = {
     reqUnion: 'Please indicate union membership',
     reqCompany: 'Company name is required',
     reqCompanyAddress: 'Company address is required',
+    reqPendingComplaintOther: 'Please specify the other complaint type',
 
     citiesErrTitle: 'Could not load cities',
     tryAgain: 'Please try again',
@@ -303,6 +309,7 @@ export const STRINGS: Record<IntakeLang, IntakeStrings> = {
     companyAddress: 'Address ng Kumpanya (Lungsod/Munisipalidad)',
     pendingComplaint: 'Presensya ng Nakabinbing Reklamo/Kaso sa Paggawa Laban sa Kumpanya',
     complaintPlaceholder: 'Maghanap ng uri ng reklamo…',
+    pendingComplaintOtherPlaceholder: 'Pakipaliwanag…',
 
     reviewIntro: 'Pakisuri ang iyong impormasyon bago isumite.',
     reviewName: 'Pangalan',
@@ -312,6 +319,7 @@ export const STRINGS: Record<IntakeLang, IntakeStrings> = {
     companyNameLabel: 'Pangalan ng Kumpanya',
     companyAddressLabel: 'Address ng Kumpanya',
     pendingLabel: 'Nakabinbing Reklamo/Kaso sa Paggawa',
+    pendingOtherLabel: 'Iba pa (ipaliwanag)',
 
     reqFirstName: 'Kailangan ang pangalan',
     reqLastName: 'Kailangan ang apelyido',
@@ -324,6 +332,7 @@ export const STRINGS: Record<IntakeLang, IntakeStrings> = {
     reqUnion: 'Pakitukoy ang pagiging miyembro ng unyon',
     reqCompany: 'Kailangan ang pangalan ng kumpanya',
     reqCompanyAddress: 'Kailangan ang address ng kumpanya',
+    reqPendingComplaintOther: 'Pakipaliwanag ang ibang uri ng reklamo',
 
     citiesErrTitle: 'Hindi ma-load ang mga lungsod',
     tryAgain: 'Pakisubukang muli',

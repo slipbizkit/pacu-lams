@@ -13,7 +13,7 @@ export async function createIntake(body: IntakeBody): Promise<Client> {
       reference_no, queue_number, transaction_date,
       first_name, middle_name, last_name, suffix, sex,
       contact_no, telephone_no, email, city_id, occupation, employer,
-      date_of_employment, union_member, company_city_id, pending_complaint_types,
+      date_of_employment, union_member, company_city_id, pending_complaint_types, pending_complaint_other,
       is_pwd, is_senior, is_pregnant, is_anonymous
     ) VALUES (
       ${referenceNo}, ${queueNumber}, ${transactionDate},
@@ -22,7 +22,7 @@ export async function createIntake(body: IntakeBody): Promise<Client> {
       ${body.contact_no ?? null}, ${body.telephone_no ?? null}, ${body.email ?? null}, ${body.city_id ?? null},
       ${body.occupation ?? null}, ${body.employer ?? null},
       ${body.date_of_employment || null}, ${body.union_member ?? null}, ${body.company_city_id ?? null},
-      ${body.pending_complaint_types ?? null},
+      ${body.pending_complaint_types ?? null}, ${body.pending_complaint_other ?? null},
       ${body.is_pwd ?? false}, ${body.is_senior ?? false}, ${body.is_pregnant ?? false}, ${body.is_anonymous ?? false}
     )
     RETURNING *

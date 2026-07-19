@@ -26,6 +26,7 @@ const EMPTY_FORM: IntakeBody = {
   employer: '',
   company_city_id: undefined,
   pending_complaint_types: [],
+  pending_complaint_other: '',
   is_pwd: false,
   is_senior: false,
   is_pregnant: false,
@@ -73,6 +74,9 @@ function validateStep(step: number, form: IntakeBody, t: IntakeStrings): FieldEr
   if (step === 2) {
     if (!form.employer?.trim()) errors.employer = t.reqCompany;
     if (!form.company_city_id) errors.company_city_id = t.reqCompanyAddress;
+    if (form.pending_complaint_types?.includes('Others') && !form.pending_complaint_other?.trim()) {
+      errors.pending_complaint_other = t.reqPendingComplaintOther;
+    }
   }
 
   return errors;
@@ -905,6 +909,20 @@ function CompanyDetailsStep({ form, update, errors, cities }: StepProps & { citi
           onChange={(values) => update('pending_complaint_types', values as PendingComplaintType[])}
           placeholder={t.complaintPlaceholder}
         />
+        {form.pending_complaint_types?.includes('Others') && (
+          <div className={`pacu-wizard-field mt-2${errors.pending_complaint_other ? ' is-error' : ''}`}>
+            <input
+              className="form-control"
+              type="text"
+              placeholder={t.pendingComplaintOtherPlaceholder}
+              value={form.pending_complaint_other ?? ''}
+              onChange={(e) => update('pending_complaint_other', e.target.value)}
+            />
+            {errors.pending_complaint_other && (
+              <div className="pacu-wizard-error"><i className="bi bi-exclamation-circle" />{errors.pending_complaint_other}</div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
@@ -968,6 +986,12 @@ function ReviewStep({ form, cities }: { form: IntakeBody; cities: CityMunicipali
                 )}
               </span>
             </div>
+            {form.pending_complaint_types?.includes('Others') && form.pending_complaint_other && (
+              <div className="pacu-wizard-review-row">
+                <span className="text-muted">{t.pendingOtherLabel}</span>
+                <span className="fw-medium">{form.pending_complaint_other}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
