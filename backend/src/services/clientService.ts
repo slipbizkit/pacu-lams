@@ -234,7 +234,8 @@ export async function saveConsultation(
     SET legal_advice = ${body.legal_advice ?? null},
         referred_office_id = ${body.referred_office_id ?? null},
         referred_reason = ${body.referred_reason ?? null},
-        status = ${newStatus}
+        status = ${newStatus},
+        completed_at = CASE WHEN ${newStatus} = 'completed' THEN NOW() ELSE completed_at END
     WHERE client_id = ${clientId} AND assigned_lawyer_id = ${lawyerId}
     RETURNING *
   `;
@@ -464,10 +465,10 @@ export async function listAllCompleted(filters: HistoryFilters): Promise<Complet
         OR (c.first_name || ' ' || c.last_name) ILIKE ${searchLike}::text
         OR c.employer ILIKE ${searchLike}::text
       )
-      AND (${dateFrom}::date IS NULL OR c.updated_at >= ${dateFrom}::date)
-      AND (${dateTo}::date IS NULL OR c.updated_at < (${dateTo}::date + INTERVAL '1 day'))
+      AND (${dateFrom}::date IS NULL OR c.completed_at >= ${dateFrom}::date)
+      AND (${dateTo}::date IS NULL OR c.completed_at < (${dateTo}::date + INTERVAL '1 day'))
     GROUP BY c.client_id, cm.city_municipality, cm.province, cm2.city_municipality
-    ORDER BY c.updated_at DESC
+    ORDER BY c.completed_at DESC
   `;
   return rows as CompletedTransaction[];
 }
@@ -586,8 +587,8 @@ export async function listCompletedByLawyer(
     LEFT JOIN issue_categories ic ON ic.category_id = ci.category_id
     WHERE c.assigned_lawyer_id = ${lawyerId}
       AND c.status = 'completed'
-      AND (${dateFrom}::date IS NULL OR c.updated_at::date >= ${dateFrom}::date)
-      AND (${dateTo}::date IS NULL OR c.updated_at::date <= ${dateTo}::date)
+      AND (${dateFrom}::date IS NULL OR c.completed_at::date >= ${dateFrom}::date)
+      AND (${dateTo}::date IS NULL OR c.completed_at::date <= ${dateTo}::date)
       AND (
         ${searchLike}::text IS NULL
         OR c.first_name ILIKE ${searchLike}::text
@@ -596,7 +597,7 @@ export async function listCompletedByLawyer(
         OR c.employer ILIKE ${searchLike}::text
       )
     GROUP BY c.client_id, cm.city_municipality, cm.province, cm2.city_municipality
-    ORDER BY c.updated_at DESC
+    ORDER BY c.completed_at DESC
   `;
   return rows as CompletedTransaction[];
 }

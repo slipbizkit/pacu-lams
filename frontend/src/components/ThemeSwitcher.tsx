@@ -9,23 +9,23 @@ const OPTIONS: { value: Theme; label: string; icon: string }[] = [
 
 export function ThemeSwitcher() {
   const { theme, setTheme } = useTheme();
+  const current = OPTIONS.find((o) => o.value === theme) ?? OPTIONS[0];
+
+  function cycle() {
+    const idx = OPTIONS.findIndex((o) => o.value === theme);
+    const next = OPTIONS[(idx + 1) % OPTIONS.length];
+    setTheme(next.value);
+  }
 
   return (
-    <div className="pacu-theme-switch" role="radiogroup" aria-label="Theme">
-      {OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          role="radio"
-          aria-checked={theme === opt.value}
-          aria-label={opt.label}
-          title={opt.label}
-          className={theme === opt.value ? 'active' : ''}
-          onClick={() => setTheme(opt.value)}
-        >
-          <i className={`bi ${opt.icon}`} />
-        </button>
-      ))}
-    </div>
+    <button
+      type="button"
+      className="pacu-theme-switch active"
+      onClick={cycle}
+      aria-label={`Theme: ${current.label}`}
+      title={current.label}
+    >
+      <i className={`bi ${current.icon}`} />
+    </button>
   );
 }

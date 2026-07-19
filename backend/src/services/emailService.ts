@@ -146,7 +146,7 @@ function buildHtml(params: {
               <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
                 This is an official record of your consultation with the DOLE Public Assistance and Complaints Unit.
                 Please keep this for your reference. If you have further concerns, you may return to the PACU office
-                or contact us directly.
+                or contact us directly at <a href="mailto:ls@dole.gov.ph" style="color:#1a3a8f;text-decoration:none;">ls@dole.gov.ph</a>.
               </p>
             </td>
           </tr>

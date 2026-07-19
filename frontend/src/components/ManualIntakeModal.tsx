@@ -20,6 +20,10 @@ function todayStr(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+function sanitizeTelephone(value: string): string {
+  return value.replace(/[^0-9-]/g, '').replace(/-{2,}/g, '-');
+}
+
 function formatContactNo(digits: string): string {
   if (digits.length <= 4) return digits;
   if (digits.length <= 7) return digits.slice(0, 4) + '-' + digits.slice(4);
@@ -27,7 +31,7 @@ function formatContactNo(digits: string): string {
 }
 
 function toCityOptions(cities: CityMunicipality[]) {
-  return cities.map((c) => ({ value: c.id, label: `${c.city_municipality}, ${c.province}` }));
+  return cities.map((c) => ({ id: c.id, label: `${c.city_municipality}, ${c.province}` }));
 }
 
 function validate(form: ManualIntakeBody): FieldErrors {
@@ -39,6 +43,8 @@ function validate(form: ManualIntakeBody): FieldErrors {
     if (!form.last_name?.trim()) errors.last_name = 'Last name is required';
     if (!form.sex) errors.sex = 'Sex is required';
   }
+  if (!form.employer?.trim()) errors.employer = 'Company name is required';
+  if (!form.company_city_id) errors.company_city_id = 'Company address is required';
   const rawContact = form.contact_no?.replace(/-/g, '') ?? '';
   if (rawContact.length > 0 && rawContact.length < 11) errors.contact_no = 'Enter a valid 11-digit mobile number';
   if (form.email?.trim() && !EMAIL_PATTERN.test(form.email.trim())) errors.email = 'Enter a valid email address';
@@ -71,7 +77,6 @@ const EMPTY_FORM: ManualIntakeBody = {
   is_anonymous: false,
   transaction_date: todayStr(),
   assigned_lawyer_id: 0,
-  concern: '',
 };
 
 export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps) {
@@ -108,6 +113,17 @@ export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps
       setErrors(errs);
       return;
     }
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: 'Add Client?',
+      text: 'This will create a new transaction assigned directly to the selected lawyer as Incomplete.',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, add client',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: 'var(--pacu-accent)',
+    });
+    if (!confirm.isConfirmed) return;
+
     setSubmitting(true);
     try {
       const result = await clientService.manualIntake(form);
@@ -132,20 +148,20 @@ export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps
       <div className="modal-backdrop show" style={{ position: 'fixed', inset: 0, zIndex: 1050 }} onClick={onClose} />
       <div
         className="modal show d-block"
-        style={{ position: 'fixed', inset: 0, zIndex: 1055, overflowX: 'hidden', overflowY: 'auto' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 1055, overflowY: 'auto' }}
         aria-modal="true"
         role="dialog"
       >
-        <div className="modal-dialog modal-xl modal-dialog-scrollable">
-          <div className="modal-content">
-            <div className="modal-header">
+        <div className="modal-dialog modal-xl" style={{ margin: '1rem auto' }}>
+          <div className="modal-content" style={{ maxHeight: 'calc(100vh - 2rem)', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header align-items-start">
               <div>
                 <h5 className="modal-title mb-0">Add Client Manually</h5>
                 <p className="text-muted mb-0" style={{ fontSize: '0.82rem' }}>
                   Client will be assigned directly to the selected lawyer as Incomplete.
                 </p>
               </div>
-              <button type="button" className="btn-close ms-3" onClick={onClose} aria-label="Close" />
+              <button type="button" className="btn-close ms-auto" onClick={onClose} aria-label="Close" />
             </div>
 
             {loading ? (
@@ -153,8 +169,8 @@ export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps
                 <div className="spinner-border text-primary" />
               </div>
             ) : (
-              <form onSubmit={handleSubmit}>
-                <div className="modal-body">
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
 
                   {/* Transaction Details */}
                   <p className="pacu-eyebrow mb-3">Transaction Details</p>
@@ -165,6 +181,7 @@ export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps
                         type="date"
                         className={`form-control${errors.transaction_date ? ' is-invalid' : ''}`}
                         value={form.transaction_date}
+                        max={todayStr()}
                         onChange={(e) => update('transaction_date', e.target.value)}
                       />
                       {errors.transaction_date && <div className="invalid-feedback">{errors.transaction_date}</div>}
@@ -199,62 +216,58 @@ export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps
 
                   {/* Client Information */}
                   <p className="pacu-eyebrow mb-3">Client Information</p>
-                  {!form.is_anonymous && (
-                    <>
-                      <div className="row g-3 mb-3">
-                        <div className="col-md-4">
-                          <label className="form-label">First Name <span className="text-danger">*</span></label>
-                          <input
-                            className={`form-control${errors.first_name ? ' is-invalid' : ''}`}
-                            value={form.first_name ?? ''}
-                            onChange={(e) => update('first_name', e.target.value)}
-                          />
-                          {errors.first_name && <div className="invalid-feedback">{errors.first_name}</div>}
-                        </div>
-                        <div className="col-md-3">
-                          <label className="form-label">Middle Name</label>
-                          <input className="form-control" value={form.middle_name ?? ''} onChange={(e) => update('middle_name', e.target.value)} />
-                        </div>
-                        <div className="col-md-4">
-                          <label className="form-label">Last Name <span className="text-danger">*</span></label>
-                          <input
-                            className={`form-control${errors.last_name ? ' is-invalid' : ''}`}
-                            value={form.last_name ?? ''}
-                            onChange={(e) => update('last_name', e.target.value)}
-                          />
-                          {errors.last_name && <div className="invalid-feedback">{errors.last_name}</div>}
-                        </div>
-                        <div className="col-md-1">
-                          <label className="form-label">Suffix</label>
-                          <input className="form-control" value={form.suffix ?? ''} onChange={(e) => update('suffix', e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="row g-3 mb-3">
-                        <div className="col-md-4">
-                          <label className="form-label">Sex <span className="text-danger">*</span></label>
-                          <select
-                            className={`form-select${errors.sex ? ' is-invalid' : ''}`}
-                            value={form.sex ?? ''}
-                            onChange={(e) => update('sex', (e.target.value as ClientSex) || undefined)}
-                          >
-                            <option value="">Select sex…</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                          </select>
-                          {errors.sex && <div className="invalid-feedback">{errors.sex}</div>}
-                        </div>
-                        <div className="col-md-8">
-                          <label className="form-label">City / Municipality</label>
-                          <SearchableSelect
-                            options={cityOptions}
-                            value={form.city_id ?? null}
-                            onChange={(id) => update('city_id', id ?? undefined)}
-                            placeholder="Search city or municipality…"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  <div className="row g-3 mb-3">
+                    <div className="col-md-4">
+                      <label className="form-label">First Name {!form.is_anonymous && <span className="text-danger">*</span>}</label>
+                      <input
+                        className={`form-control${errors.first_name ? ' is-invalid' : ''}`}
+                        value={form.first_name ?? ''}
+                        onChange={(e) => update('first_name', e.target.value)}
+                      />
+                      {errors.first_name && <div className="invalid-feedback">{errors.first_name}</div>}
+                    </div>
+                    <div className="col-md-3">
+                      <label className="form-label">Middle Name</label>
+                      <input className="form-control" value={form.middle_name ?? ''} onChange={(e) => update('middle_name', e.target.value)} />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label">Last Name {!form.is_anonymous && <span className="text-danger">*</span>}</label>
+                      <input
+                        className={`form-control${errors.last_name ? ' is-invalid' : ''}`}
+                        value={form.last_name ?? ''}
+                        onChange={(e) => update('last_name', e.target.value)}
+                      />
+                      {errors.last_name && <div className="invalid-feedback">{errors.last_name}</div>}
+                    </div>
+                    <div className="col-md-1">
+                      <label className="form-label">Suffix</label>
+                      <input className="form-control" value={form.suffix ?? ''} onChange={(e) => update('suffix', e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="row g-3 mb-3">
+                    <div className="col-md-4">
+                      <label className="form-label">Sex {!form.is_anonymous && <span className="text-danger">*</span>}</label>
+                      <select
+                        className={`form-select${errors.sex ? ' is-invalid' : ''}`}
+                        value={form.sex ?? ''}
+                        onChange={(e) => update('sex', (e.target.value as ClientSex) || undefined)}
+                      >
+                        <option value="">Select sex…</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                      </select>
+                      {errors.sex && <div className="invalid-feedback">{errors.sex}</div>}
+                    </div>
+                    <div className="col-md-8">
+                      <label className="form-label">City / Municipality</label>
+                      <SearchableSelect
+                        options={cityOptions}
+                        value={form.city_id ?? null}
+                        onChange={(id) => update('city_id', id ?? undefined)}
+                        placeholder="Search city or municipality…"
+                      />
+                    </div>
+                  </div>
 
                   {/* Contact Details */}
                   <div className="row g-3 mb-3">
@@ -278,7 +291,7 @@ export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps
                         className="form-control"
                         value={form.telephone_no ?? ''}
                         placeholder="(02) 8XXX-XXXX"
-                        onChange={(e) => update('telephone_no', e.target.value)}
+                        onChange={(e) => update('telephone_no', sanitizeTelephone(e.target.value))}
                       />
                     </div>
                     <div className="col-md-4">
@@ -309,50 +322,53 @@ export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps
                     </div>
                   </div>
 
-                  {/* Employment — only for non-anonymous */}
-                  {!form.is_anonymous && (
-                    <>
-                      <p className="pacu-eyebrow mb-3">Employment</p>
-                      <div className="row g-3 mb-4">
-                        <div className="col-md-4">
-                          <label className="form-label">Work Position / Occupation</label>
-                          <input className="form-control" value={form.occupation ?? ''} onChange={(e) => update('occupation', e.target.value)} />
-                        </div>
-                        <div className="col-md-4">
-                          <label className="form-label">Date of Employment</label>
-                          <input type="date" className="form-control" value={form.date_of_employment ?? ''} onChange={(e) => update('date_of_employment', e.target.value)} />
-                        </div>
-                        <div className="col-md-4">
-                          <label className="form-label">Union Member</label>
-                          <select
-                            className="form-select"
-                            value={form.union_member === undefined ? '' : form.union_member ? 'yes' : 'no'}
-                            onChange={(e) => update('union_member', e.target.value === '' ? undefined : e.target.value === 'yes')}
-                          >
-                            <option value="">Select…</option>
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                          </select>
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  {/* Employment */}
+                  <p className="pacu-eyebrow mb-3">Employment</p>
+                  <div className="row g-3 mb-4">
+                    <div className="col-md-4">
+                      <label className="form-label">Work Position / Occupation</label>
+                      <input className="form-control" value={form.occupation ?? ''} onChange={(e) => update('occupation', e.target.value)} />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label">Date of Employment</label>
+                      <input type="date" className="form-control" max={todayStr()} value={form.date_of_employment ?? ''} onChange={(e) => update('date_of_employment', e.target.value)} />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label">Union Member</label>
+                      <select
+                        className="form-select"
+                        value={form.union_member === undefined ? '' : form.union_member ? 'yes' : 'no'}
+                        onChange={(e) => update('union_member', e.target.value === '' ? undefined : e.target.value === 'yes')}
+                      >
+                        <option value="">Select…</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
+                    </div>
+                  </div>
 
                   {/* Company Details */}
                   <p className="pacu-eyebrow mb-3">Company Details</p>
                   <div className="row g-3 mb-3">
                     <div className="col-md-6">
-                      <label className="form-label">Company Name</label>
-                      <input className="form-control" value={form.employer ?? ''} onChange={(e) => update('employer', e.target.value)} />
+                      <label className="form-label">Company Name <span className="text-danger">*</span></label>
+                      <input
+                        className={`form-control${errors.employer ? ' is-invalid' : ''}`}
+                        value={form.employer ?? ''}
+                        onChange={(e) => update('employer', e.target.value)}
+                      />
+                      {errors.employer && <div className="invalid-feedback">{errors.employer}</div>}
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label">Company Address (City / Municipality)</label>
+                      <label className="form-label">Company Address (City / Municipality) <span className="text-danger">*</span></label>
                       <SearchableSelect
                         options={cityOptions}
                         value={form.company_city_id ?? null}
                         onChange={(id) => update('company_city_id', id ?? undefined)}
                         placeholder="Search city or municipality…"
+                        invalid={!!errors.company_city_id}
                       />
+                      {errors.company_city_id && <div className="text-danger" style={{ fontSize: '0.875em', marginTop: '0.25rem' }}>{errors.company_city_id}</div>}
                     </div>
                   </div>
                   <div className="mb-4">
@@ -375,16 +391,6 @@ export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps
                       </div>
                     )}
                   </div>
-
-                  {/* Client's Stated Concern */}
-                  <p className="pacu-eyebrow mb-3">Client's Stated Concern <span className="text-muted fw-normal" style={{ textTransform: 'none', letterSpacing: 0 }}>(Optional)</span></p>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    placeholder="Enter the client's own description of their concern…"
-                    value={form.concern ?? ''}
-                    onChange={(e) => update('concern', e.target.value)}
-                  />
 
                 </div>
 

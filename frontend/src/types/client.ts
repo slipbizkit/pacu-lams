@@ -65,6 +65,7 @@ export interface Client {
 
   created_at: string;
   updated_at: string;
+  completed_at: string | null;
 }
 
 // Lobby-TV queue board — deliberately PII-free (no client names).

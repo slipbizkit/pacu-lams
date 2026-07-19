@@ -35,6 +35,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 1.5rem;
 }
 
 /* Language + theme controls, each with a small caption above the switch. */
@@ -91,17 +92,30 @@
 .pacu-intake-wordmark {
   display: flex;
   flex-direction: column;
-  line-height: 1.3;
 }
 
-.pacu-intake-wordmark span {
+.pacu-intake-wordmark-name {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.pacu-intake-wordmark-name span {
   font-family: var(--pacu-font-display, inherit);
+  font-size: 0.975rem;
   font-weight: 700;
-  font-size: 1.25rem;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--dole-blue);
-  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.pacu-intake-wordmark-clock {
+  font-size: 0.975rem;
+  font-weight: 600;
+  color: var(--pacu-text-muted);
+  white-space: nowrap;
+  line-height: 1;
 }
 
 /* Center DOLE government banner */
@@ -174,8 +188,11 @@ html[data-theme='dark'] .pacu-intake-navbar {
   .pacu-dole-banner-republic {
     font-size: 0.72rem;
   }
-  .pacu-intake-wordmark span {
-    font-size: 0.95rem;
+  .pacu-intake-wordmark-name span {
+    font-size: 0.58rem;
+  }
+  .pacu-intake-wordmark-clock {
+    font-size: 0.87rem;
   }
   .pacu-intake-content {
     padding-top: calc(72px + 1.25rem);

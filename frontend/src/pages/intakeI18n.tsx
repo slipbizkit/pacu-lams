@@ -411,28 +411,20 @@ export function useIntakeLang(): IntakeLangCtx {
   return ctx;
 }
 
-const LANG_OPTIONS: { value: IntakeLang; label: string }[] = [
-  { value: 'en', label: 'English' },
-  { value: 'tl', label: 'Tagalog' },
-];
+const LANG_OPTIONS: IntakeLang[] = ['en', 'tl'];
+const LANG_LABELS: Record<IntakeLang, string> = { en: 'English', tl: 'Tagalog' };
 
 export function LanguageSwitch() {
   const { lang, setLang } = useIntakeLang();
 
+  function cycle() {
+    const next = LANG_OPTIONS[(LANG_OPTIONS.indexOf(lang) + 1) % LANG_OPTIONS.length];
+    setLang(next);
+  }
+
   return (
-    <div className="pacu-lang-switch" role="radiogroup" aria-label="Language">
-      {LANG_OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          role="radio"
-          aria-checked={lang === opt.value}
-          className={lang === opt.value ? 'active' : ''}
-          onClick={() => setLang(opt.value)}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
+    <button type="button" className="pacu-lang-switch active" onClick={cycle} aria-label="Switch language">
+      {LANG_LABELS[lang]}
+    </button>
   );
 }

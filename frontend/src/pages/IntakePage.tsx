@@ -39,6 +39,10 @@ type FieldErrors = Partial<Record<keyof IntakeBody, string>>;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function sanitizeTelephone(value: string): string {
+  return value.replace(/[^0-9-]/g, '').replace(/-{2,}/g, '-');
+}
+
 function formatContactNo(digits: string): string {
   if (digits.length <= 4) return digits;
   if (digits.length <= 7) return digits.slice(0, 4) + '-' + digits.slice(4);
@@ -82,9 +86,16 @@ function validateStep(step: number, form: IntakeBody, t: IntakeStrings): FieldEr
   return errors;
 }
 
+function formatClock(d: Date): string {
+  const day = d.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const time = d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${day} • ${time}`;
+}
+
 export default function IntakePage() {
   const [lang, setLang] = useState<IntakeLang>('en');
   const t = STRINGS[lang];
+  const [clock, setClock] = useState(() => formatClock(new Date()));
 
   const [consentGiven, setConsentGiven] = useState(false);
   const [anonymousChosen, setAnonymousChosen] = useState(false);
@@ -97,6 +108,11 @@ export default function IntakePage() {
   const [result, setResult] = useState<IntakeResult | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [cities, setCities] = useState<CityMunicipality[]>([]);
+
+  useEffect(() => {
+    const id = setInterval(() => setClock(formatClock(new Date())), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     lookupService.citiesMunicipalities()
@@ -238,8 +254,10 @@ export default function IntakePage() {
         <header className="pacu-intake-navbar">
           <div className="pacu-intake-navbar-left">
             <div className="pacu-intake-wordmark">
-              <span>Client</span>
-              <span>Form</span>
+              <div className="pacu-intake-wordmark-name">
+                <span>Public Assistance</span>
+                <span>and Complaints Unit</span>
+              </div>
             </div>
           </div>
 
@@ -258,18 +276,19 @@ export default function IntakePage() {
           </div>
 
           <div className="pacu-intake-navbar-right">
+            <span className="pacu-intake-wordmark-clock">{clock}</span>
             <div className="pacu-intake-controls">
               <div className="pacu-control-group">
                 <span className="pacu-control-label">
                   <i className="bi bi-translate" />
-                  {t.langLabel}
+                  Language
                 </span>
                 <LanguageSwitch />
               </div>
               <div className="pacu-control-group">
                 <span className="pacu-control-label">
                   <i className="bi bi-palette" />
-                  {t.themeLabel}
+                  Theme
                 </span>
                 <ThemeSwitcher />
               </div>
@@ -738,7 +757,7 @@ function ClientInfoStep({ form, update, errors, cities }: StepProps & { cities: 
           <input
             className="form-control"
             value={form.telephone_no}
-            onChange={(e) => update('telephone_no', e.target.value)}
+            onChange={(e) => update('telephone_no', sanitizeTelephone(e.target.value))}
             placeholder={t.telephonePlaceholder}
           />
         </div>

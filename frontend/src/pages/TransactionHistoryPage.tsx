@@ -368,7 +368,7 @@ export default function TransactionHistoryPage() {
                 {pageRows.map((row) => (
                   <tr key={row.client_id}>
                     <td className="ps-4" style={{ whiteSpace: 'nowrap' }}>
-                      {fmtDate(row.updated_at)}
+                      {row.completed_at ? fmtDate(row.completed_at) : '—'}
                     </td>
                     <td>
                       <span className="pacu-mono fw-semibold">{row.queue_number}</span>
