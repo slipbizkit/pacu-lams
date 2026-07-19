@@ -4,7 +4,7 @@ import * as ClientService from '../services/clientService';
 import * as LookupService from '../services/lookupService';
 import { buildReferralPdf } from '../services/referralPdfService';
 import { sendConsultationSummary } from '../services/emailService';
-import { ConsultationBody, HistoryFilters, IntakeBody, ClientSex, PendingComplaintType } from '../types/client';
+import { ConsultationBody, HistoryFilters, IntakeBody, ManualIntakeBody, ClientSex, PendingComplaintType } from '../types/client';
 
 const SEX_VALUES: ClientSex[] = ['male', 'female'];
 const PENDING_COMPLAINT_TYPE_VALUES: PendingComplaintType[] = [
@@ -54,6 +54,46 @@ export async function intake(req: Request, res: Response) {
     last_name: body.last_name.trim(),
   });
 
+  res.status(201).json({
+    reference_no: client.reference_no,
+    queue_number: client.queue_number,
+    transaction_date: client.transaction_date,
+  });
+}
+
+export async function manualIntake(req: AuthRequest, res: Response) {
+  const body = req.body as ManualIntakeBody;
+
+  if (!body.transaction_date || !/^\d{4}-\d{2}-\d{2}$/.test(body.transaction_date)) {
+    return res.status(400).json({ message: 'Valid transaction date (YYYY-MM-DD) is required' });
+  }
+  const lawyerId = Number(body.assigned_lawyer_id);
+  if (!lawyerId || !Number.isInteger(lawyerId)) {
+    return res.status(400).json({ message: 'Assigned lawyer is required' });
+  }
+  if (!body.is_anonymous) {
+    if (!body.first_name?.trim() || !body.last_name?.trim()) {
+      return res.status(400).json({ message: 'First name and last name are required for non-anonymous clients' });
+    }
+  }
+  if (body.sex && !SEX_VALUES.includes(body.sex)) {
+    return res.status(400).json({ message: 'Invalid sex value' });
+  }
+  if (
+    body.pending_complaint_types &&
+    (!Array.isArray(body.pending_complaint_types) ||
+      body.pending_complaint_types.some((t) => !PENDING_COMPLAINT_TYPE_VALUES.includes(t)))
+  ) {
+    return res.status(400).json({ message: 'Invalid pending complaint type value' });
+  }
+  if (body.city_id != null && !Number.isInteger(body.city_id)) {
+    return res.status(400).json({ message: 'Invalid city_id value' });
+  }
+  if (body.company_city_id != null && !Number.isInteger(body.company_city_id)) {
+    return res.status(400).json({ message: 'Invalid company_city_id value' });
+  }
+
+  const client = await ClientService.createManualIntake({ ...body, assigned_lawyer_id: lawyerId }, req.user!.id);
   res.status(201).json({
     reference_no: client.reference_no,
     queue_number: client.queue_number,

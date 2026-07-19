@@ -12,10 +12,20 @@ const PACU_TIMEZONE = 'Asia/Manila';
 // Atomic per-month counter: ON CONFLICT DO UPDATE increments in the same statement,
 // so concurrent intake submissions never race on the same queue number.
 //
-// The month and day are both pinned to Manila local time.  The counter key is the
-// first day of the current month (so it resets at the start of each new month),
-// while the returned transaction_date is today's full date (for the reference number).
-export async function nextQueueSlot(): Promise<QueueSlot> {
+// When forDate (YYYY-MM-DD) is provided (manual entry), its month is used as the
+// counter key and it is returned as-is as the transaction date.
+// When omitted (kiosk), Manila local time determines both.
+export async function nextQueueSlot(forDate?: string): Promise<QueueSlot> {
+  if (forDate) {
+    const rows = await sql`
+      INSERT INTO monthly_queue_counters (queue_month, last_number)
+      VALUES (date_trunc('month', ${forDate}::date)::date, 1)
+      ON CONFLICT (queue_month) DO UPDATE SET last_number = monthly_queue_counters.last_number + 1
+      RETURNING last_number
+    `;
+    return { queueNumber: (rows[0] as { last_number: number }).last_number, transactionDate: forDate };
+  }
+
   const rows = await sql`
     WITH local_now AS (
       SELECT now() AT TIME ZONE ${PACU_TIMEZONE}::text AS ts

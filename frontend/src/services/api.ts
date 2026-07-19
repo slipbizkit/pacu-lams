@@ -12,6 +12,7 @@ import type {
   HistoryFilters,
   IntakeBody,
   IntakeResult,
+  ManualIntakeBody,
   IssueCategory,
   IssueCategoryGroup,
   IssueTag,
@@ -174,6 +175,11 @@ export const authService = {
 export const clientService = {
   intake: (body: IntakeBody) =>
     terminalFetch<IntakeResult>('/clients', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  manualIntake: (body: ManualIntakeBody) =>
+    apiFetch<IntakeResult>('/clients/manual', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

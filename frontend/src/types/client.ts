@@ -61,6 +61,7 @@ export interface Client {
 
   status: ClientStatus;
   cancellation_reason: string | null;
+  source_entry: 'kiosk' | 'manual';
 
   created_at: string;
   updated_at: string;
@@ -197,6 +198,32 @@ export interface IntakeBody {
   is_senior?: boolean;
   is_pregnant?: boolean;
   is_anonymous?: boolean;
+}
+
+export interface ManualIntakeBody {
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  suffix?: string;
+  sex?: ClientSex;
+  contact_no?: string;
+  telephone_no?: string;
+  email?: string;
+  city_id?: number;
+  occupation?: string;
+  date_of_employment?: string;
+  union_member?: boolean;
+  employer?: string;
+  company_city_id?: number;
+  pending_complaint_types?: PendingComplaintType[];
+  pending_complaint_other?: string;
+  is_pwd?: boolean;
+  is_senior?: boolean;
+  is_pregnant?: boolean;
+  is_anonymous?: boolean;
+  transaction_date: string;
+  assigned_lawyer_id: number;
+  concern?: string;
 }
 
 export interface IntakeResult {

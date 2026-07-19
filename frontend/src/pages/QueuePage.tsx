@@ -4,6 +4,7 @@ import Swal from 'sweetalert2';
 import { clientService, userService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Client, LawyerOption } from '../types/client';
+import { ManualIntakeModal } from '../components/ManualIntakeModal';
 
 function isPriority(c: Client) {
   return c.is_senior || c.is_pwd || c.is_pregnant;
@@ -31,6 +32,7 @@ export default function QueuePage() {
   const { role } = useAuth();
   const canAssign = role === 'admin';
   const canRemove = role === 'support_staff' || role === 'personnel' || role === 'admin';
+  const canManualIntake = role === 'personnel' || role === 'admin';
 
   const [clients, setClients] = useState<Client[]>([]);
   const [lawyers, setLawyers] = useState<LawyerOption[]>([]);
@@ -44,6 +46,7 @@ export default function QueuePage() {
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const openMenuClientRef = useRef<Client | null>(null);
+  const [showManualModal, setShowManualModal] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -255,6 +258,11 @@ export default function QueuePage() {
       <div className="d-flex align-items-center justify-content-between mb-1">
         <h1 className="pacu-display mb-0">Queue</h1>
         <div className="d-flex align-items-center gap-3">
+          {canManualIntake && (
+            <button className="btn btn-outline-primary" onClick={() => setShowManualModal(true)}>
+              <i className="bi bi-person-plus me-2" />Add Client Manually
+            </button>
+          )}
           {role === 'lawyer' && (
             <button className="btn btn-primary" onClick={handleTakeNext} disabled={takingNext}>
               {takingNext ? <span className="spinner-border spinner-border-sm me-2" /> : <i className="bi bi-plus-lg me-2" />}
@@ -451,6 +459,13 @@ export default function QueuePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showManualModal && (
+        <ManualIntakeModal
+          onClose={() => setShowManualModal(false)}
+          onCreated={() => setShowManualModal(false)}
+        />
       )}
     </div>
   );

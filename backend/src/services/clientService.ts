@@ -1,5 +1,5 @@
 import sql from '../db';
-import { Client, CompletedTransaction, ConsultationBody, HistoryFilters, IntakeBody, IssueTag } from '../types/client';
+import { Client, CompletedTransaction, ConsultationBody, HistoryFilters, IntakeBody, IssueTag, ManualIntakeBody } from '../types/client';
 import { nextQueueSlot, buildReferenceNo } from './queueService';
 import { findReferredOfficeById } from './lookupService';
 import { sendConsultationSummary } from './emailService';
@@ -14,7 +14,7 @@ export async function createIntake(body: IntakeBody): Promise<Client> {
       first_name, middle_name, last_name, suffix, sex,
       contact_no, telephone_no, email, city_id, occupation, employer,
       date_of_employment, union_member, company_city_id, pending_complaint_types, pending_complaint_other,
-      is_pwd, is_senior, is_pregnant, is_anonymous
+      is_pwd, is_senior, is_pregnant, is_anonymous, source_entry
     ) VALUES (
       ${referenceNo}, ${queueNumber}, ${transactionDate},
       ${body.first_name}, ${body.middle_name ?? null}, ${body.last_name}, ${body.suffix ?? null},
@@ -23,7 +23,35 @@ export async function createIntake(body: IntakeBody): Promise<Client> {
       ${body.occupation ?? null}, ${body.employer ?? null},
       ${body.date_of_employment || null}, ${body.union_member ?? null}, ${body.company_city_id ?? null},
       ${body.pending_complaint_types ?? null}, ${body.pending_complaint_other ?? null},
-      ${body.is_pwd ?? false}, ${body.is_senior ?? false}, ${body.is_pregnant ?? false}, ${body.is_anonymous ?? false}
+      ${body.is_pwd ?? false}, ${body.is_senior ?? false}, ${body.is_pregnant ?? false}, ${body.is_anonymous ?? false}, 'kiosk'
+    )
+    RETURNING *
+  `;
+  return rows[0] as Client;
+}
+
+export async function createManualIntake(body: ManualIntakeBody, encodedBy: number): Promise<Client> {
+  const { queueNumber, transactionDate } = await nextQueueSlot(body.transaction_date);
+  const referenceNo = buildReferenceNo(transactionDate, queueNumber);
+
+  const rows = await sql`
+    INSERT INTO clients (
+      reference_no, queue_number, transaction_date,
+      first_name, middle_name, last_name, suffix, sex,
+      contact_no, telephone_no, email, city_id, occupation, employer,
+      date_of_employment, union_member, company_city_id, pending_complaint_types, pending_complaint_other,
+      is_pwd, is_senior, is_pregnant, is_anonymous,
+      concern, assigned_lawyer_id, status, source_entry, encoded_by
+    ) VALUES (
+      ${referenceNo}, ${queueNumber}, ${transactionDate},
+      ${body.first_name?.trim() ?? ''}, ${body.middle_name ?? null}, ${body.last_name?.trim() ?? ''}, ${body.suffix ?? null},
+      ${body.sex ?? null},
+      ${body.contact_no ?? null}, ${body.telephone_no ?? null}, ${body.email ?? null}, ${body.city_id ?? null},
+      ${body.occupation ?? null}, ${body.employer ?? null},
+      ${body.date_of_employment || null}, ${body.union_member ?? null}, ${body.company_city_id ?? null},
+      ${body.pending_complaint_types ?? null}, ${body.pending_complaint_other ?? null},
+      ${body.is_pwd ?? false}, ${body.is_senior ?? false}, ${body.is_pregnant ?? false}, ${body.is_anonymous ?? false},
+      ${body.concern ?? null}, ${body.assigned_lawyer_id}, 'incomplete', 'manual', ${encodedBy}
     )
     RETURNING *
   `;

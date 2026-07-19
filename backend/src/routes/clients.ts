@@ -10,6 +10,7 @@ router.post('/', requireTerminal, asyncHandler(ClientController.intake));
 router.get('/queue-board', requireTerminal, asyncHandler(ClientController.getQueueBoard));
 
 router.get('/queue', requireAuth, asyncHandler(ClientController.listQueue));
+router.post('/manual', requireAuth, requireRole('personnel', 'admin'), asyncHandler(ClientController.manualIntake));
 router.post(
   '/:id/assign',
   requireAuth,
