@@ -288,8 +288,6 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [othersText, setOthersText] = useState('');
-  const [othersError, setOthersError] = useState(false);
-  const othersInputRef = useRef<HTMLInputElement>(null);
   const [legalAdvice, setLegalAdvice] = useState(client.legal_advice ?? '');
   const [referring, setReferring] = useState(!!client.referred_office_id || client.referred_reason !== null);
   const [officeId, setOfficeId] = useState<number | ''>(client.referred_office_id ?? '');
@@ -323,10 +321,6 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
     [selectedIds, categories]
   );
 
-  useEffect(() => {
-    if (!hasOthersSelected) setOthersError(false);
-  }, [hasOthersSelected]);
-
   async function handleDownloadReferral() {
     setDownloadingReferral(true);
     try {
@@ -338,49 +332,7 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
     }
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!markIncomplete) {
-      if (hasOthersSelected && othersText.trim() === '') {
-        setOthersError(true);
-        othersInputRef.current?.focus();
-        return;
-      }
-
-      const missingCategory = selectedIds.size === 0;
-      const missingAdvice = legalAdvice.trim() === '';
-      if (missingCategory || missingAdvice) {
-        const missingItems = [
-          missingCategory && 'No issue category has been selected.',
-          missingAdvice && 'No legal advice has been entered.',
-        ].filter(Boolean).join('<br>');
-        const result = await Swal.fire({
-          icon: 'warning',
-          title: 'Incomplete Transaction',
-          html: `${missingItems}<br><br>If you are not yet ready to complete this consultation, please mark the transaction as <strong>Incomplete</strong> so you can continue it later.`,
-          showCancelButton: true,
-          confirmButtonText: 'Mark as Incomplete',
-          cancelButtonText: 'Continue Editing',
-          confirmButtonColor: 'var(--pacu-accent)',
-        });
-        if (result.isConfirmed) {
-          setMarkIncomplete(true);
-        }
-        return;
-      }
-
-      const confirm = await Swal.fire({
-        icon: 'warning',
-        title: 'Complete this transaction?',
-        text: 'This closes the case and cannot be undone from this screen.',
-        showCancelButton: true,
-        confirmButtonText: 'Complete',
-        confirmButtonColor: 'var(--pacu-accent)',
-      });
-      if (!confirm.isConfirmed) return;
-    }
-
+  async function doSave(incomplete: boolean) {
     setSaving(true);
     try {
       const updated = await clientService.saveConsultation(client.client_id, {
@@ -388,12 +340,12 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
         issue_description: hasOthersSelected ? othersText : undefined,
         legal_advice: legalAdvice || undefined,
         referred_office_id: referring && officeId !== '' ? Number(officeId) : null,
-        referred_reason: referring ? (referralReason.trim() || (markIncomplete ? '' : undefined)) : null,
-        mark_incomplete: markIncomplete,
+        referred_reason: referring ? (referralReason.trim() || (incomplete ? '' : undefined)) : null,
+        mark_incomplete: incomplete,
       });
       Swal.fire({
         icon: 'success',
-        title: markIncomplete ? 'Saved' : 'Transaction completed',
+        title: incomplete ? 'Saved' : 'Transaction completed',
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
@@ -405,6 +357,53 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (markIncomplete) {
+      await doSave(true);
+      return;
+    }
+
+    const missingCategory = selectedIds.size === 0;
+    const missingAdvice = legalAdvice.trim() === '';
+    const missingOthersDesc = hasOthersSelected && othersText.trim() === '';
+
+    if (missingCategory || missingAdvice || missingOthersDesc) {
+      const missingItems = [
+        missingCategory && 'No issue category has been selected.',
+        missingOthersDesc && 'The description for the "Others" issue has not been filled out.',
+        missingAdvice && 'No legal advice has been entered.',
+      ].filter(Boolean).join('<br>');
+      const result = await Swal.fire({
+        icon: 'warning',
+        title: 'Incomplete Transaction',
+        html: `${missingItems}<br><br>If you are not yet ready to complete this consultation, please mark the transaction as <strong>Incomplete</strong> so you can continue it later.`,
+        showCancelButton: true,
+        confirmButtonText: 'Mark as Incomplete',
+        cancelButtonText: 'Continue Editing',
+        confirmButtonColor: 'var(--pacu-accent)',
+      });
+      if (result.isConfirmed) {
+        setMarkIncomplete(true);
+        await doSave(true);
+      }
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Complete this transaction?',
+      text: 'This closes the case and cannot be undone from this screen.',
+      showCancelButton: true,
+      confirmButtonText: 'Complete',
+      confirmButtonColor: 'var(--pacu-accent)',
+    });
+    if (!confirm.isConfirmed) return;
+
+    await doSave(false);
   }
 
   return (
@@ -442,15 +441,7 @@ export function CompleteTransactionPanel({ client, onCancel, onSaved }: Complete
             {hasOthersSelected && (
               <div className="mb-4">
                 <label className="form-label">Please describe the "Others" issue <span className="text-danger">*</span></label>
-                <input
-                  ref={othersInputRef}
-                  className={`form-control${othersError ? ' is-invalid' : ''}`}
-                  value={othersText}
-                  onChange={(e) => { setOthersText(e.target.value); if (othersError) setOthersError(false); }}
-                />
-                {othersError && (
-                  <div className="invalid-feedback">Please describe the "Others" issue.</div>
-                )}
+                <input className="form-control" value={othersText} onChange={(e) => setOthersText(e.target.value)} />
               </div>
             )}
 
