@@ -129,8 +129,13 @@ export function ManualIntakeModal({ onClose, onCreated }: ManualIntakeModalProps
 
   const modal = (
     <>
-      <div className="modal-backdrop show" style={{ zIndex: 1050 }} onClick={onClose} />
-      <div className="modal show d-block" style={{ zIndex: 1055 }} aria-modal="true" role="dialog">
+      <div className="modal-backdrop show" style={{ position: 'fixed', inset: 0, zIndex: 1050 }} onClick={onClose} />
+      <div
+        className="modal show d-block"
+        style={{ position: 'fixed', inset: 0, zIndex: 1055, overflowX: 'hidden', overflowY: 'auto' }}
+        aria-modal="true"
+        role="dialog"
+      >
         <div className="modal-dialog modal-xl modal-dialog-scrollable">
           <div className="modal-content">
             <div className="modal-header">
